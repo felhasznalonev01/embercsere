@@ -1,0 +1,64 @@
+rules_version = '2';
+
+// Embercsere – Firestore biztonsági szabályok.
+// Ezt a teljes szöveget kell bemásolni: Firebase konzol → Firestore Database → Szabályok (Rules) → Közzététel (Publish).
+// Ha a config.js-ben átírod a fiókok e-mail címét, itt is írd át ugyanúgy!
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Melyik fiók melyik osztály
+    function myClass() {
+      return {
+        'osztaly1@example.com': 'o1',
+        'osztaly2@example.com': 'o2',
+        'osztaly3@example.com': 'o3',
+        'osztaly4@example.com': 'o4'
+      }.get(request.auth.token.email, 'nincs');
+    }
+    function member() {
+      return request.auth != null && myClass() != 'nincs';
+    }
+    function req(id) {
+      return get(/databases/$(database)/documents/requests/$(id)).data;
+    }
+
+    // Kérések: csak a saját osztályod nevében kérhetsz, és csak a sajátodat törölheted
+    match /requests/{requestId} {
+      allow read: if member();
+      allow create: if member()
+        && request.resource.data.keys().hasOnly(['classId', 'date', 'shift', 'qty', 'note', 'createdAt'])
+        && request.resource.data.classId == myClass()
+        && request.resource.data.date is string
+        && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.shift is string && request.resource.data.shift.size() <= 20
+        && request.resource.data.qty is list && request.resource.data.qty.size() <= 10
+        && request.resource.data.note is string && request.resource.data.note.size() <= 500
+        && request.resource.data.createdAt == request.time;
+      allow delete: if member() && resource.data.classId == myClass();
+      allow update: if false;
+    }
+
+    // Felajánlások ("Adok 1-et"): csak a saját osztályod nevében, más osztály kérésére,
+    // és csak amíg van szabad hely (minden helynek saját azonosítója van, így nem lehet túltölteni)
+    match /offers/{offerId} {
+      allow read: if member();
+      allow create: if member()
+        && request.resource.data.keys().hasOnly(['requestId', 'roleIndex', 'slot', 'classId', 'person', 'createdAt'])
+        && request.resource.data.classId == myClass()
+        && request.resource.data.person is string
+        && request.resource.data.person.size() > 0 && request.resource.data.person.size() <= 100
+        && request.resource.data.roleIndex is int && request.resource.data.roleIndex >= 0
+        && request.resource.data.slot is int && request.resource.data.slot >= 0
+        && offerId == request.resource.data.requestId + '_' + string(request.resource.data.roleIndex) + '_' + string(request.resource.data.slot)
+        && req(request.resource.data.requestId).classId != myClass()
+        && request.resource.data.roleIndex < req(request.resource.data.requestId).qty.size()
+        && request.resource.data.slot < req(request.resource.data.requestId).qty[request.resource.data.roleIndex]
+        && request.resource.data.createdAt == request.time;
+      // Visszavonhatja aki adta, vagy akinek a kérése
+      allow delete: if member()
+        && (resource.data.classId == myClass() || req(resource.data.requestId).classId == myClass());
+      allow update: if false;
+    }
+  }
+}
