@@ -41,7 +41,11 @@ async function firebaseBackend() {
     if (code.includes("too-many-requests")) return "Túl sok próbálkozás, várj pár percet.";
     if (code.includes("permission-denied")) return "Ezt nem teheted meg (vagy közben valaki más már módosította). Próbáld újra.";
     if (code.includes("network") || code.includes("unavailable")) return "Nincs internetkapcsolat.";
-    return "Hiba történt: " + (e && e.message || e);
+    if (code.includes("invalid-email")) return "Hibás e-mail formátum a config.js-ben.";
+    if (code.includes("operation-not-allowed")) return "A Firebase-ben nincs bekapcsolva az Email/Password belépés.";
+    if (code.includes("unauthorized-domain") || code.includes("requests-from-referer")) return "Ez a webcím nincs engedélyezve a Firebase-ben (Authentication → Settings → Authorized domains). Kód: " + code;
+    if (code.includes("api-key")) return "A config.js-ben lévő apiKey hibás. Kód: " + code;
+    return "Hiba történt: " + (code || (e && e.message) || e);
   };
   const wrap = fn => async (...a) => { try { return await fn(...a); } catch (e) { throw new Error(friendly(e)); } };
 
@@ -50,6 +54,11 @@ async function firebaseBackend() {
     onAuth(cb) {
       return A.onAuthStateChanged(auth, u => {
         const c = u && classByEmail(u.email);
+        if (u && !c) {
+          // Belépett, de ez a fiók nincs a config.js-ben
+          A.signOut(auth);
+          return cb(null, `A(z) „${u.email}” fiók nincs osztályhoz rendelve. A Firebase-ben pontosan így kell lennie: osztaly1@example.com … osztaly4@example.com`);
+        }
         cb(c ? { classId: c.id } : null);
       });
     },

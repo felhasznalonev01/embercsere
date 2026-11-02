@@ -229,7 +229,8 @@ $("#rDate").value = today();
     return;
   }
   $("#demoBanner").hidden = !be.isDemo;
-  be.onAuth(user => {
+  be.onAuth((user, problem) => {
+    if (problem) $("#loginErr").textContent = problem;
     if (unsubscribe) { unsubscribe(); unsubscribe = null; }
     me = user ? user.classId : null;
     giving = null;
