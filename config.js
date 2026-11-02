@@ -3,14 +3,13 @@
 // ======================================================================
 
 // 1) Ide másold be a Firebase konzolból kapott firebaseConfig értékeit.
-//    Amíg itt "IDE_JON" szerepel, az oldal PRÓBAMÓDBAN fut (nem ment semmit).
 export const firebaseConfig = {
-  apiKey: "IDE_JON",
-  authDomain: "IDE_JON",
-  projectId: "IDE_JON",
-  storageBucket: "IDE_JON",
-  messagingSenderId: "IDE_JON",
-  appId: "IDE_JON"
+  apiKey: "AIzaSyAQ0yIZL-I2TTodu-109wMViieNFnd8a4A",
+  authDomain: "emberecsere.firebaseapp.com",
+  projectId: "emberecsere",
+  storageBucket: "emberecsere.firebasestorage.app",
+  messagingSenderId: "569766677652",
+  appId: "1:569766677652:web:6b96ed7001925cf005b881"
 };
 
 // 2) A 4 osztály. Az "email" a Firebase-ben létrehozott fiók címe
