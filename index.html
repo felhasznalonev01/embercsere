@@ -42,6 +42,7 @@
   button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
   button.give { background: var(--ok); color: #fff; border-color: var(--ok); padding: 4px 10px; }
   button.del { border: none; background: none; color: var(--danger); padding: 2px 6px; }
+  .field { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
   label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
   .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
@@ -113,7 +114,7 @@
       <h2>Embert kérek</h2>
       <div class="row">
         <label>Nap <input type="date" id="rDate"></label>
-        <label>Napszak <span class="seg" id="rShift"></span></label>
+        <div class="field"><span>Napszak</span><span class="seg" id="rShift"></span></div>
         <label style="flex:1;min-width:200px">Megjegyzés (nem kötelező) <input id="rNote" maxlength="500" placeholder="pl. 6:00-tól, szabadság miatt"></label>
       </div>
       <div class="roles" id="rRoles"></div>
@@ -125,7 +126,7 @@
 
     <section>
       <div class="toolbar">
-        <label>Mutasd <span class="seg" id="fStatus"></span></label>
+        <div class="field"><span>Mutasd</span><span class="seg" id="fStatus"></span></div>
         <label>Osztály <select id="fClass"></select></label>
         <label>Ettől a naptól <input type="date" id="fFrom"></label>
         <span class="grow"></span>

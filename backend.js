@@ -5,7 +5,7 @@ const SDK = "https://www.gstatic.com/firebasejs/10.12.2/";
 const notConfigured = !firebaseConfig.apiKey || firebaseConfig.apiKey === "IDE_JON";
 // Próbamód csak a saját gépen (localhost) indulhat – feltöltve soha.
 const isLocal = ["localhost", "127.0.0.1", "[::1]", ""].includes(location.hostname);
-export const isDemo = notConfigured && isLocal;
+export const isDemo = isLocal && (notConfigured || new URLSearchParams(location.search).has("proba"));
 
 export async function createBackend() {
   if (notConfigured && !isLocal) throw new Error("Az oldal még nincs beállítva (config.js). Szólj a gazdájának.");
@@ -41,6 +41,7 @@ async function firebaseBackend() {
     if (code.includes("too-many-requests")) return "Túl sok próbálkozás, várj pár percet.";
     if (code.includes("permission-denied")) return "Ezt nem teheted meg (vagy közben valaki más már módosította). Próbáld újra.";
     if (code.includes("network") || code.includes("unavailable")) return "Nincs internetkapcsolat.";
+    if (code.includes("missing-password")) return "Írd be a jelszót.";
     if (code.includes("invalid-email")) return "Hibás e-mail formátum a config.js-ben.";
     if (code.includes("operation-not-allowed")) return "A Firebase-ben nincs bekapcsolva az Email/Password belépés.";
     if (code.includes("unauthorized-domain") || code.includes("requests-from-referer")) return "Ez a webcím nincs engedélyezve a Firebase-ben (Authentication → Settings → Authorized domains). Kód: " + code;
