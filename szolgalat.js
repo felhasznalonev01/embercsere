@@ -331,6 +331,28 @@ function positionEditor() {
   ed.style.left = left + "px"; ed.style.top = top + "px";
 }
 
+// Kis ablak: egy kód beírása időszakra (pl. betegség)
+function openRange(pid, date, code = "B") {
+  const p = personOf(pid); if (!p) return;
+  modal(`<h2>${esc(p.name)}</h2>
+    <div class="stack">
+      <label>Mi <select id="rgCode"><option value="B">Beteg</option><option value="SZ">Szabadság</option><option value="P">Pihenő</option><option value="K">Képzés</option><option value="">Üres (törlés)</option></select></label>
+      <div class="row"><label>Mettől <input type="date" id="rgFrom" value="${date}"></label><label>Meddig <input type="date" id="rgTo" value="${date}"></label></div>
+      <div class="muted" style="font-size:12px" id="rgInfo"></div>
+    </div>`, async bg => {
+    const c = bg.querySelector("#rgCode").value, f = bg.querySelector("#rgFrom").value, t = bg.querySelector("#rgTo").value;
+    if (!f || !t || t < f) { alert("A „Meddig” nem lehet korábbi a „Mettől”-nél."); return false; }
+    const days = range(f, t);
+    if (days.length > 366) { alert("Legfeljebb 1 évet lehet egyszerre beírni."); return false; }
+    await run(() => be.batch(cellsWrites(days.map(d => ({ pid, date: d, val: c ? { c } : null })))));
+  });
+  const bg = document.querySelector(".modal-bg");
+  bg.querySelector("#rgCode").value = code;
+  const info = () => { const f = bg.querySelector("#rgFrom").value, t = bg.querySelector("#rgTo").value; bg.querySelector("#rgInfo").textContent = f && t && t >= f ? `${range(f, t).length} nap` : ""; };
+  bg.addEventListener("change", info); info();
+  setTimeout(() => bg.querySelector("#rgTo").focus(), 0);
+}
+
 // Ember adatai (névre kattintva)
 function openPerson(pid, rangeDate = null) {
   const focusRange = !!rangeDate, rd = rangeDate || today();
@@ -671,9 +693,10 @@ function wire() {
     }
     else if (e.target.closest?.("[data-person]") && canEdit) openPerson(e.target.closest("[data-person]").dataset.person);
     else if (e.target.closest?.("[data-goclass]")) { me = e.target.closest("[data-goclass]").dataset.goclass; render(); }
+    else if (d.code === "B" && e.target.closest?.("#editor")) { const { pid, date } = sel; openRange(pid, date, "B"); }
     else if (d.code !== undefined) applyCode(d.code);
     else if (t.id === "edClose" || t.id === "edClose2") { sel = null; renderGrid(); }
-    else if (t.id === "edRange") { const { pid, date } = sel; openPerson(pid, date); }
+    else if (t.id === "edRange") { const { pid, date } = sel; openRange(pid, date, cellOf(pid, date)?.c && ["B", "SZ", "P", "K"].includes(cellOf(pid, date).c) ? cellOf(pid, date).c : "B"); }
     else if (t.id === "edTReset") { const cur = cellOf(sel.pid, sel.date); setCell(sel.pid, sel.date, { ...cur, s: null, e: null }); }
     else if (d.fill) openFill(d.fill);
     else if (d.lf) { leaveFilter = d.lf; render(); }
@@ -717,7 +740,8 @@ function wire() {
   document.addEventListener("keydown", e => {
     if (!canEdit || !sel || tab !== "grid" || e.target.matches?.("input, select, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
-    if (KEYS[k]) { e.preventDefault(); applyCode(KEYS[k]); moveSel(1, 0); }
+    if (k === "b") { e.preventDefault(); openRange(sel.pid, sel.date, "B"); }
+    else if (KEYS[k]) { e.preventDefault(); applyCode(KEYS[k]); moveSel(1, 0); }
     else if (k === "delete" || k === "backspace") { e.preventDefault(); applyCode(""); moveSel(1, 0); }
     else if (k === "+" || k === "t") { e.preventDefault(); toggleOt(); }
     else if (k === "arrowright") { e.preventDefault(); moveSel(1, 0); }
