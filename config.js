@@ -29,7 +29,7 @@ export const ADMIN = { email: "vezeto@example.com", name: "Szolgálatvezetés" }
 
 // 3) Beosztások (embercseréhez és a névsorhoz). A sorrendet NE változtasd,
 //    ha már vannak kérések (a végére hozzáírni lehet, legfeljebb 10 elem).
-export const ROLES = ["Irányító", "Régió parancsnok", "020-as", "009-es", "Ügyeletvezető helyettes"];
+export const ROLES = ["Irányító", "Régió parancsnok", "020-as", "009-es", "Ügyeletvezető helyettes", "Osztályvezető", "Ügyeletvezető"];
 
 // Embercsere napszakai és hogy a beosztásban melyik kódnak felelnek meg
 export const SHIFTS = ["Nappal", "Éjszaka"];
@@ -80,8 +80,13 @@ export const KERET = { firstMonth: 1, months: 4, hoursPerWorkday: 8 };
 // 7) Túlóra: ha a túlóra a saját szolgálat vége után ennyi órán belül kezdődik → 200%, különben 100%
 export const OVERTIME_200_WINDOW_HOURS = 24;
 
-// 8) Alapértelmezett napi cél-létszám (osztályonként az oldalon átírható)
+// 8) Alapértelmezett napi cél-létszám (osztályonként az oldalon átírható), külön nappal és éjszaka
 export const DEFAULT_TARGET = 15;
+export const DEFAULT_TARGET_DAY = 15;
+export const DEFAULT_TARGET_NIGHT = 15;
+// Nappal és éjszaka határa a létszám-számításhoz: nappal 7:00–19:00, éjszaka 19:00–7:00.
+// Valaki akkor számít bele, ha legalább ennyi órát dolgozik az adott napszakban.
+export const DAY_FROM = "07:00", NIGHT_FROM = "19:00", COUNT_MIN_HOURS = 6;
 
 // Magyar munkaszüneti napok (a húsvéti / pünkösdi napokat magától számolja)
 export const FIXED_HOLIDAYS = ["01-01", "03-15", "05-01", "08-20", "10-23", "11-01", "12-25", "12-26"];

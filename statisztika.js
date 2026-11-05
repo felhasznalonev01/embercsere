@@ -1,7 +1,7 @@
 // Statisztika: osztályvezető a saját osztályát, a szolgálatvezetés mind a 4-et látja (és lebontja).
-import { CLASSES, DEFAULT_TARGET, ROLES } from "./config.js";
+import { CLASSES, DEFAULT_TARGET, ROLES, DEFAULT_TARGET_DAY, DEFAULT_TARGET_NIGHT } from "./config.js";
 import { $, esc, className, color, store, run, showError, start, today, addDays, range, monthsIn, monthKey, keretOf, lastOfMonth, fmtDate } from "./common.js";
-import { DEFAULT_LIMITS, overtimeOf, countCodes, staffing, examIssues } from "./calc.js";
+import { DEFAULT_LIMITS, overtimeOf, countCodes, staffing, examIssues, targetsOf } from "./calc.js";
 
 const MONTHS = ["jan", "feb", "márc", "ápr", "máj", "jún", "júl", "aug", "szept", "okt", "nov", "dec"];
 const PTYPES = [["month", "Hónap"], ["keret", "4 havi keret"], ["year", "Év"]];
@@ -65,7 +65,7 @@ function classStats(cid) {
   const p = period(), l = limitPeriod(), y = today().slice(0, 4);
   const R = rosterBy[cid] || {};
   const people = peopleAll.filter(x => x.classId === cid && x.active !== false);
-  const target = Number(settingsBy[cid]?.target ?? DEFAULT_TARGET);
+  const tg = targetsOf(settingsBy[cid], DEFAULT_TARGET_DAY, DEFAULT_TARGET_NIGHT);
   const rows = people.map(x => {
     const ot = overtimeOf(x.id, cid, R, offers, p.from, p.to);
     const otL = overtimeOf(x.id, cid, R, offers, l.from, l.to);
@@ -76,7 +76,7 @@ function classStats(cid) {
     };
   });
   const sum = k => rows.reduce((a, r) => a + r.ot[k], 0);
-  const staff = staffing(cid, p.from, p.to, R, peopleAll, offers, rotation, target);
+  const staff = staffing(cid, p.from, p.to, R, peopleAll, offers, rotation, tg.day, tg.night);
   const reqs = requests.filter(r => r.classId === cid && r.date >= p.from && r.date <= p.to);
   const inP = o => o.date >= p.from && o.date <= p.to;
   // havi bontás
@@ -87,7 +87,7 @@ function classStats(cid) {
     return { m, h100, h200 };
   });
   return {
-    cid, rows, people, target, staff, months,
+    cid, rows, people, tg, staff, months,
     h100: sum("h100"), h200: sum("h200"), total: sum("total"), lent: sum("lent"),
     over: rows.filter(r => r.limitTotal > limits.maxOvertime), near: rows.filter(r => r.limitTotal <= limits.maxOvertime && r.limitTotal >= limits.maxOvertime * 0.9),
     leaveUsed: rows.reduce((a, r) => a + r.leaveUsed, 0), leaveTotal: rows.reduce((a, r) => a + r.leaveTotal, 0),
@@ -163,13 +163,19 @@ function monthCols(months) {
   }).join("")}</div><div class="xlabels">${months.map(m => `<span>${MONTHS[Number(m.m.slice(5)) - 1]}</span>`).join("")}</div>`;
 }
 
-function staffCols(staff, target) {
+// Létszám a szolgálati napokon, külön nappal és éjszaka (mindkettő a saját céljához)
+function staffCols(staff, tg) {
   if (!staff.length) return `<div class="empty-list">Nincs szolgálati nap az időszakban${rotation ? "" : " (nincs beállítva szolgálati sorrend)"}.</div>`;
-  const top = Math.max(target * 1.25, ...staff.map(s => s.n), 1);
-  return `<div class="cols" style="gap:${staff.length > 60 ? 1 : 3}px">
-    <div class="tline" style="bottom:${target / top * 100}%"><span>cél ${target}</span></div>
-    ${staff.map(s => `<div class="col ${s.ok ? "okc" : "lowc"}" data-tip="${s.date.replaceAll("-", ".")}.\n${s.n} fő (cél ${target})${s.ok ? "" : `\nhiányzik ${s.short} fő`}"><div class="seg" style="height:${s.n / top * 100}%"></div></div>`).join("")}
-  </div><div class="xlabels"><span style="text-align:left">${staff[0].date.slice(5).replace("-", ".")}.</span><span style="text-align:right">${staff[staff.length - 1].date.slice(5).replace("-", ".")}.</span></div>`;
+  const one = (key, target, label) => {
+    const top = Math.max(target * 1.25, ...staff.map(s => s[key]), 1);
+    return `<div style="font-size:12px;color:var(--muted);margin:6px 0 -10px">${label}</div>
+    <div class="cols" style="height:130px;gap:${staff.length > 60 ? 1 : 3}px">
+      <div class="tline" style="bottom:${target / top * 100}%"><span>cél ${target}</span></div>
+      ${staff.map(s => { const ok = s[key] >= target; return `<div class="col ${ok ? "okc" : "lowc"}" data-tip="${s.date.replaceAll("-", ".")}. – ${label}\n${s[key]} fő (cél ${target})${ok ? "" : `\nhiányzik ${target - s[key]} fő`}"><div class="seg" style="height:${s[key] / top * 100}%"></div></div>`; }).join("")}
+    </div>`;
+  };
+  return one("day", tg.day, "☀︎ Nappal (7–19)") + one("night", tg.night, "☾ Éjszaka (19–7)") +
+    `<div class="xlabels"><span style="text-align:left">${staff[0].date.slice(5).replace("-", ".")}.</span><span style="text-align:right">${staff[staff.length - 1].date.slice(5).replace("-", ".")}.</span></div>`;
 }
 
 function leaveBars(rows) {
@@ -209,8 +215,8 @@ function renderClass(cid) {
     ${det ? personDetail(det) : ""}
     <div class="chart"><h3>100% / 200% arány</h3><p class="desc">A túlórák megoszlása a célhoz (${100 - limits.share200}% / ${limits.share200}%) képest. A fekete vonal a cél.</p>${LEG_OT}</div>${ratioBar(s.h100, s.h200)}</div>
     <div class="chart"><h3>Túlóra havonta</h3><p class="desc">Óra / hónap, 100% és 200% szerint.</p>${LEG_OT}</div>${monthCols(s.months)}</div>
-    <div class="chart wide"><h3>Létszám a szolgálati napokon</h3><p class="desc">Minden oszlop egy szolgálati nap (7–7). Zöld: megvolt a cél-létszám, piros: kevesebben voltak.</p>
-      <div class="legend2"><span><i style="background:var(--good)"></i>✓ megvolt</span><span><i style="background:var(--bad)"></i>⚠ kevés</span><span><i class="line"></i>cél ${s.target} fő</span></div>${staffCols(s.staff, s.target)}</div>
+    <div class="chart wide"><h3>Létszám a szolgálati napokon</h3><p class="desc">Minden oszlop egy szolgálati nap (7–7), külön a nappali és az éjszakai létszám. Zöld: megvolt a cél, piros: kevesebben voltak.</p>
+      <div class="legend2"><span><i style="background:var(--good)"></i>✓ megvolt</span><span><i style="background:var(--bad)"></i>⚠ kevés</span><span><i class="line"></i>cél: nappal ${s.tg.day}, éjszaka ${s.tg.night} fő</span></div>${staffCols(s.staff, s.tg)}</div>
     <div class="chart"><h3>Szabadság (${today().slice(0, 4)})</h3><p class="desc">Felhasznált napok az éves kerethez képest.</p>${leaveBars(s.rows.slice().sort((a, b) => b.leaveUsed / (b.leaveTotal || 1) - a.leaveUsed / (a.leaveTotal || 1)))}</div>
     <div class="chart"><h3>Lejárt / lejáró érvényességek</h3><p class="desc">Pszichológiai, egészségügyi, fizikai, lőkiképzés.</p>${examList(s.rows, false)}</div>
   </div>`;

@@ -19,7 +19,7 @@ function render() {
   const badge = s => s === "jóváhagyva" ? '<span class="badge done">jóváhagyva</span>' : s === "elutasítva" ? '<span class="badge no">elutasítva</span>' : '<span class="badge open">elbírálásra vár</span>';
   $("#mine").innerHTML = mine.length ? `<table class="plain"><thead><tr><th>Mettől</th><th>Meddig</th><th class="num">Nap</th><th>Típus</th><th>Állapot</th><th></th></tr></thead><tbody>
     ${mine.map(l => `<tr><td>${fmtDate(l.from)}</td><td>${fmtDate(l.to)}</td><td class="num">${range(l.from, l.to).length}</td><td>${esc(l.kind)}${l.note ? `<br><small class="muted">${esc(l.note)}</small>` : ""}</td>
-      <td>${badge(l.status)}</td><td>${l.status === "függő" ? `<button class="small danger" data-withdraw="${l.id}">Visszavonom</button>` : ""}</td></tr>`).join("")}
+      <td>${badge(l.status)}${l.status === "jóváhagyva" && l.szDays != null ? `<br><small class="muted">${l.szDays} nap szabadság${l.pDays ? `, ${l.pDays} pihenőnap` : ""}</small>` : ""}</td><td>${l.status === "függő" ? `<button class="small danger" data-withdraw="${l.id}">Visszavonom</button>` : ""}</td></tr>`).join("")}
     </tbody></table>` : `<div class="empty-list">Még nincs kérelmed.</div>`;
 }
 

@@ -99,6 +99,30 @@ function renderRequest(r) {
     </div>${rows}${r.note ? `<div class="note">📝 ${esc(r.note)}</div>` : ""}</div>`;
 }
 
+// Régi felajánlások: a hiányzó dátumot / napszakot a kérésből vesszük
+function normalize(o) {
+  if (o.date && o.shift && o.toClassId) return o;
+  const r = data.requests.find(x => x.id === o.requestId);
+  return r ? { ...o, date: o.date || r.date, shift: o.shift || r.shift, toClassId: o.toClassId || r.classId, legacy: !o.date } : o;
+}
+// A saját osztály régi felajánlásaiba beírjuk a dátumot, és ha a név szerepel a névsorban, összekapcsoljuk
+const fixed = new Set();
+const norm = s => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+function backfill() {
+  if (!be || !me) return;
+  for (const o of data.offers) {
+    if (o.classId !== me || fixed.has(o.id)) continue;
+    const r = data.requests.find(x => x.id === o.requestId); if (!r) continue;
+    const match = !o.personId ? people.find(p => norm(p.name) === norm(o.person)) : null;
+    const patch = {};
+    if (o.legacy) Object.assign(patch, { date: r.date, shift: r.shift, toClassId: r.classId, personId: o.personId || "" });
+    if (match) patch.personId = match.id;
+    if (!Object.keys(patch).length) continue;
+    fixed.add(o.id);
+    be.update("offers", o.id, patch).catch(() => {});
+  }
+}
+
 // ------------------------------------------------------------------ Excel (CSV)
 function exportCsv(onlyId) {
   const q = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
@@ -210,10 +234,22 @@ start({
       if (i2 && typed) { i2.value = typed[0]; i2.hidden = typed[1]; }
       if (s2 && chosen != null) s2.value = chosen;
     };
+    // A felajánlásokat kérésenként keressük (így a dátum nélküli régiek is megjelennek)
+    let offerSubs = [], offerKey = "", byChunk = {};
+    const resubOffers = () => {
+      const ids = data.requests.map(r => r.id).sort(), key = ids.join(",");
+      if (key === offerKey) return;
+      offerKey = key; offerSubs.forEach(u => u()); offerSubs = []; byChunk = {};
+      for (let i = 0; i < ids.length; i += 30) {
+        const chunk = ids.slice(i, i + 30), ci = i;
+        offerSubs.push(be.watch("offers", [["requestId", "in", chunk]], keep(d => { byChunk[ci] = d; data.offers = Object.values(byChunk).flat().map(normalize); backfill(); }), showError));
+      }
+      if (!ids.length) { data.offers = []; render(); }
+    };
     unsubs.push(
-      be.watch("requests", [["date", ">=", since]], keep(d => { data.requests = d; }), showError),
-      be.watch("offers", [["date", ">=", since]], keep(d => { data.offers = d; }), showError),
-      be.watch("people", [["classId", "==", me]], keep(d => { people = d; }), showError)
+      be.watch("requests", [["date", ">=", since]], keep(d => { data.requests = d; resubOffers(); }), showError),
+      be.watch("people", [["classId", "==", me]], keep(d => { people = d; backfill(); }), showError),
+      () => offerSubs.forEach(u => u())
     );
   },
   onLogout() { unsubs.forEach(u => u()); unsubs = []; me = null; }

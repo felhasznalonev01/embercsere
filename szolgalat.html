@@ -32,6 +32,7 @@
   table.grid tr.borrowed td.cell { cursor: default; }
   table.grid tr.count td { font-weight: 700; position: sticky; bottom: 0; z-index: 2; height: 34px; }
   table.grid tr.count td.name { z-index: 3; }
+  table.grid tr.count.cday td { bottom: 34px; }
   table.grid.overview td { font-weight: 700; height: 34px; }
   table.grid.overview td.name { cursor: pointer; font-weight: 600; }
   table.grid.overview td.name:hover { color: var(--accent); }
@@ -77,6 +78,13 @@
   @media (prefers-color-scheme: dark) { .viewonly { background: #1e2a44; color: #c7d7fb; border-color: #2c3e66; } }
   .viewonly.flash { animation: flash .8s; }
   @keyframes flash { 0%, 100% { transform: none; } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+  table.grid td .tm { display: block; font-size: 9px; font-weight: 500; line-height: 1; color: #374151; }
+  table.grid tr.count td.name small { display: inline; }
+  .editor .ed-codes button:disabled { opacity: .35; cursor: not-allowed; }
+  .editor .times input { width: 92px; }
+  .leave-days { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; max-height: 300px; overflow: auto; }
+  .leave-days div { display: flex; align-items: center; justify-content: space-between; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 4px 4px 8px; font-size: 13px; }
+  .leave-days .seg button { padding: 3px 8px; font-size: 12px; }
   table.grid th small.dlbl { color: var(--text); font-weight: 600; font-size: 10px; }
   table.grid tbody td.name.clickable { cursor: pointer; }
   table.grid .name .warn { margin-left: 4px; }
@@ -119,7 +127,8 @@
       <label>Kezdőnap <input type="date" id="gFrom"></label>
       <div class="field"><span>Időszak</span><span class="seg" id="gLen"></span></div>
       <div class="field"><span>&nbsp;</span><span class="row" style="gap:4px"><button id="gPrev" title="Előző">◀</button><button id="gToday">Ma</button><button id="gNext" title="Következő">▶</button></span></div>
-      <label>Napi cél-létszám <input type="number" min="0" max="999" id="gTarget" class="target-input"></label>
+      <label title="Nappal: 7:00–19:00">Cél-létszám nappal <input type="number" min="0" max="999" id="gTargetDay" class="target-input"></label>
+      <label title="Éjszaka: 19:00–7:00">éjszaka <input type="number" min="0" max="999" id="gTargetNight" class="target-input"></label>
       <span class="grow"></span>
       <button id="gExport">Excel</button>
       <button id="gPrint">Nyomtatás</button>

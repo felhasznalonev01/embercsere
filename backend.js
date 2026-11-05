@@ -112,7 +112,7 @@ async function firebaseBackend() {
 }
 
 // ---------------------------------------------------------------- Próbamód (a böngészőfülben tárolva)
-const DEMO_KEY = "embercsere-proba-v9";
+const DEMO_KEY = "embercsere-proba-v10";
 function demoBackend() {
   const ss = { get: k => { try { return sessionStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} } };
   const store = {};                 // col -> Map(id -> data)
@@ -219,7 +219,7 @@ function seedDemo(colMap) {
   colMap("settings").set("limits", { maxOvertime: 136, share200: 33, period: "month" });
   const duty = d => classes[((Math.round((new Date(d + "T12:00") - new Date(start + "T12:00")) / 86400000) % 4) + 4) % 4];
   classes.forEach((cid, ci) => {
-    colMap("classSettings").set(cid, { classId: cid, target: 17 });
+    colMap("classSettings").set(cid, { classId: cid, targetDay: 15, targetNight: 14 });
     ppl[cid] = [];
     for (let i = 0; i < 20; i++) {
       const id = `p${ci}_${i}`, pattern = i % 5 < 3 ? "24" : "12";
@@ -282,4 +282,6 @@ function seedDemo(colMap) {
   give(reqs[2], 3, 0, "o1", 3);
   give(reqs[3], 2, 0, "o2", 4);
   give(reqs[3], 4, 0, "o1", 5);
+  // régi típusú felajánlás (dátum nélkül, névsoron kívüli névvel) – a visszaállítás próbájához
+  colMap("offers").set(`${reqs[1].id}_0_0`, { requestId: reqs[1].id, roleIndex: 0, slot: 0, classId: "o2", person: "Régi Felajánlás Béla", createdAt: { seconds: 0 } });
 }

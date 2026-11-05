@@ -65,10 +65,17 @@ service cloud.firestore {
         && d().roleIndex < req(d().requestId).qty.size()
         && d().slot < req(d().requestId).qty[d().roleIndex]
         && d().createdAt == request.time;
-      // Visszavonhatja aki adta, vagy akinek a kérése
+      // Visszavonhatja aki adta, vagy akinek a kérése (régi felajánlásnál a kérésből nézzük)
       allow delete: if isLeader()
-        && (resource.data.classId == leaderClass() || resource.data.toClassId == leaderClass());
-      allow update: if false;
+        && (resource.data.classId == leaderClass()
+            || resource.data.get('toClassId', req(resource.data.requestId).classId) == leaderClass());
+      // Az adó osztály vezetője kiegészítheti: dátum / napszak / kérő osztály (a kérésből), és névsorhoz kapcsolhatja
+      allow update: if isLeader() && resource.data.classId == leaderClass()
+        && d().diff(resource.data).affectedKeys().hasOnly(['date', 'shift', 'toClassId', 'personId'])
+        && d().date == req(resource.data.requestId).date
+        && d().shift == req(resource.data.requestId).shift
+        && d().toClassId == req(resource.data.requestId).classId
+        && d().personId is string && d().personId.size() <= 60;
     }
 
     // ---------------- Névsor: vezető szerkeszti, a dolgozók csak olvassák (a saját osztályukét)
@@ -96,7 +103,8 @@ service cloud.firestore {
     // ---------------- Osztály-beállítások (napi cél-létszám)
     match /classSettings/{cid} {
       allow read: if leaderOf(cid) || isAdmin();
-      allow write: if leaderOf(cid) && d().classId == cid && d().target is number;
+      allow write: if leaderOf(cid) && d().classId == cid
+        && d().get('targetDay', 0) is number && d().get('targetNight', 0) is number && d().get('target', 0) is number;
     }
 
     // ---------------- Szolgálati sorrend (melyik nap melyik osztály van szolgálatban)
@@ -130,7 +138,7 @@ service cloud.firestore {
         && d().createdAt == request.time;
       // Elbírálni csak a vezető tudja (csak az állapotot és az időpontot módosíthatja)
       allow update: if leaderOf(resource.data.classId)
-        && d().diff(resource.data).affectedKeys().hasOnly(['status', 'decidedAt'])
+        && d().diff(resource.data).affectedKeys().hasOnly(['status', 'decidedAt', 'szDays', 'pDays'])
         && d().status in ['jóváhagyva', 'elutasítva', 'függő'];
       // Törölni a vezető bármikor, a dolgozó csak amíg függő (visszavonás)
       allow delete: if leaderOf(resource.data.classId)
