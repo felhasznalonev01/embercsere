@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Statisztika</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* Diagram-színek: 100% kék, 200% narancs (ellenőrzött pár), állapotszínek külön */
+  :root { --s100: #2a78d6; --s200: #eb6834; --good: #1f9d6b; --bad: #d14343; --warnc: #c27a12; --track: #eef0f3; --grid: #e7e9ee; }
+  @media (prefers-color-scheme: dark) { :root { --s100: #3987e5; --s200: #d95926; --track: #262b33; --grid: #2c323c; } }
+
+  .stats-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; margin-bottom: 14px; }
+  .stats-head h1 { margin-right: auto; }
+  .crumbs { font-size: 14px; color: var(--muted); margin: -6px 0 12px; }
+  .crumbs a { color: var(--accent); cursor: pointer; text-decoration: none; }
+
+  /* Mutatók */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .tile .lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .tile .val { font-size: 28px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .tile .val small { font-size: 14px; font-weight: 500; color: var(--muted); }
+  .tile .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .st { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px; margin-top: 6px; }
+  .st.good { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }
+  .st.bad { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
+  .st.warn { background: color-mix(in srgb, var(--warnc) 18%, transparent); color: var(--warnc); }
+
+  .charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 900px) { .charts { grid-template-columns: 1fr; } }
+  .chart { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+  .chart.wide { grid-column: 1 / -1; }
+  .chart h3 { margin: 0 0 2px; font-size: 15px; }
+  .chart .desc { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+  .legend2 { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .legend2 i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
+  .legend2 i.line { width: 14px; height: 0; border-top: 2px dashed var(--text); border-radius: 0; vertical-align: 3px; }
+
+  /* Vízszintes sávok */
+  .hbars { display: flex; flex-direction: column; gap: 6px; }
+  .hrow { display: grid; grid-template-columns: minmax(110px, 190px) 1fr minmax(84px, auto); gap: 10px; align-items: center; font-size: 13px; }
+  .hrow .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hrow .nm small { color: var(--muted); margin-left: 4px; }
+  .hrow.click { cursor: pointer; } .hrow.click:hover .nm { color: var(--accent); }
+  .track { position: relative; height: 18px; display: flex; gap: 2px; }
+  .track.bg { background: var(--track); border-radius: 0 4px 4px 0; }
+  .seg { height: 100%; min-width: 0; }
+  .seg:last-child { border-radius: 0 4px 4px 0; }
+  .seg.s100 { background: var(--s100); } .seg.s200 { background: var(--s200); }
+  .limit { position: absolute; top: -4px; bottom: -4px; border-left: 2px dashed var(--text); pointer-events: none; }
+  .target { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 2px solid var(--text); pointer-events: none; }
+  .hrow .v { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
+  .hrow .v .over { color: var(--bad); font-weight: 700; }
+  .hrow .v .near { color: var(--warnc); font-weight: 700; }
+
+  /* Oszlopok (havi) */
+  .cols { display: flex; align-items: flex-end; gap: 6px; height: 190px; border-bottom: 1px solid var(--grid); padding-top: 18px; position: relative; }
+  .col { flex: 1; display: flex; flex-direction: column-reverse; gap: 2px; height: 100%; justify-content: flex-start; position: relative; min-width: 0; }
+  .col .seg:last-child { border-radius: 4px 4px 0 0; }
+  .col .seg { width: 100%; }
+  .col .top { position: absolute; left: 0; right: 0; text-align: center; font-size: 11px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .xlabels { display: flex; gap: 6px; font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .xlabels span { flex: 1; text-align: center; min-width: 0; overflow: hidden; }
+  .tline { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--text); pointer-events: none; }
+  .tline span { position: absolute; right: 0; top: -16px; font-size: 11px; background: var(--card); padding: 0 4px; }
+  .col.okc .seg { background: var(--good); } .col.lowc .seg { background: var(--bad); }
+
+  /* Arány-sáv */
+  .ratio { position: relative; height: 34px; display: flex; gap: 2px; margin: 8px 0 26px; }
+  .ratio .seg { display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 13px; }
+  .ratio .seg:first-child { border-radius: 4px 0 0 4px; } .ratio .seg:last-child { border-radius: 0 4px 4px 0; }
+  .ratio .target span { position: absolute; top: 40px; transform: translateX(-50%); font-size: 11px; white-space: nowrap; color: var(--text); }
+
+  /* Osztály-kártyák (összesítő) */
+  .classcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .ccard { background: var(--card); border: 1px solid var(--line); border-top: 5px solid var(--clr); border-radius: 12px; padding: 14px; cursor: pointer; }
+  .ccard:hover { box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+  .ccard h3 { margin: 0 0 8px; font-size: 16px; }
+  .ccard .kv { display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0; }
+  .ccard .kv b { font-variant-numeric: tabular-nums; }
+  .ccard .go { font-size: 12px; color: var(--accent); margin-top: 8px; }
+
+  .limits { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+  .limits input { width: 90px; }
+
+  #tip { position: fixed; z-index: 60; pointer-events: none; background: var(--text); color: var(--bg); font-size: 12px; padding: 6px 9px; border-radius: 6px; max-width: 280px; white-space: pre-line; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
+  @media print { .topbar, .banners, .stats-head .no-print, .no-print { display: none !important; } body { background: #fff; } }
+</style>
+</head>
+<body>
+<main class="wide" id="app" hidden style="max-width:1400px">
+  <div class="stats-head">
+    <h1>Statisztika</h1>
+    <label class="no-print" id="viewWrap" hidden>Nézet <select id="view"></select></label>
+    <div class="field no-print"><span>Időszak</span><span class="seg" id="ptype"></span></div>
+    <div class="field no-print"><span>&nbsp;</span><span class="row" style="gap:4px"><button id="pPrev">◀</button><b id="pLabel" style="padding:7px 6px;min-width:150px;text-align:center"></b><button id="pNext">▶</button></span></div>
+    <div class="field no-print"><span>&nbsp;</span><span class="row" style="gap:4px"><button id="exportBtn">Excel</button><button onclick="print()">Nyomtatás</button></span></div>
+  </div>
+  <div class="crumbs" id="crumbs"></div>
+  <section class="card no-print" id="limitsCard" hidden></section>
+  <div id="content"><div class="card empty-list">Betöltés…</div></div>
+</main>
+<div id="tip" hidden></div>
+<script type="module" src="statisztika.js"></script>
+</body>
+</html>

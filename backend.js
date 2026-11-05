@@ -112,7 +112,7 @@ async function firebaseBackend() {
 }
 
 // ---------------------------------------------------------------- Próbamód (a böngészőfülben tárolva)
-const DEMO_KEY = "embercsere-proba-v5";
+const DEMO_KEY = "embercsere-proba-v8";
 function demoBackend() {
   const ss = { get: k => { try { return sessionStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} } };
   const store = {};                 // col -> Map(id -> data)
@@ -201,7 +201,7 @@ function seedDemo(colMap) {
   const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const add = (s, k) => { const [y, m, d] = s.split("-").map(Number); return iso(new Date(y, m - 1, d + k, 12)); };
   const now = new Date(), t0 = iso(now);
-  const start = iso(new Date(now.getFullYear(), now.getMonth() - 1, 1, 12));
+  const start = iso(new Date(now.getFullYear(), 0, 1, 12));      // az egész év (statisztikához)
   const end = iso(new Date(now.getFullYear(), now.getMonth() + 2, 0, 12));
   const last = ["Kovács", "Nagy", "Szabó", "Tóth", "Horváth", "Varga", "Kiss", "Molnár", "Németh", "Farkas", "Balogh", "Papp", "Takács", "Juhász", "Lakatos", "Mészáros", "Oláh", "Simon", "Rácz", "Fekete"];
   const first = ["Péter", "Anna", "Gábor", "Éva", "Bence", "Réka", "Dániel", "Júlia", "Tamás", "Zsófia", "László", "Katalin", "Attila", "Eszter", "Zoltán", "Nóra", "Balázs", "Viktória", "Ádám", "Krisztina"];
@@ -216,9 +216,10 @@ function seedDemo(colMap) {
   const getCell = (cid, pid, d) => colMap("roster").get(`${cid}_${d.slice(0, 7)}`)?.cells?.[pid]?.[d.slice(8)];
   // szolgálati sorrend: a kezdőnaptól o1, o2, o3, o4, o1, ...
   colMap("settings").set("rotation", { start, order: classes });
+  colMap("settings").set("limits", { maxOvertime: 136, share200: 33, period: "year" });
   const duty = d => classes[((Math.round((new Date(d + "T12:00") - new Date(start + "T12:00")) / 86400000) % 4) + 4) % 4];
   classes.forEach((cid, ci) => {
-    colMap("classSettings").set(cid, { classId: cid, target: 19 });
+    colMap("classSettings").set(cid, { classId: cid, target: 17 });
     ppl[cid] = [];
     for (let i = 0; i < 20; i++) {
       const id = `p${ci}_${i}`, pattern = i % 5 < 3 ? "24" : "12";
@@ -238,13 +239,26 @@ function seedDemo(colMap) {
       const p = pick(ppl[cid]), from = add(t0, Math.floor(rnd() * 40) - 15), len = 4 + Math.floor(rnd() * 6);
       for (let x = 0; x < len; x++) if (getCell(cid, p.id, add(from, x))) rosterCell(cid, p.id, add(from, x), { c: j === 4 ? "B" : "SZ" });
     }
-    // túlóra: a szolgálati nap előtti napon behívva (a saját osztálynál)
-    for (let j = 0; j < 6; j++) {
-      const p = pick(ppl[cid]); let d = add(t0, Math.floor(rnd() * 40) - 20);
-      while (duty(d) !== cid) d = add(d, 1);
-      const prev = add(d, 2);
-      if (!getCell(cid, p.id, prev)) rosterCell(cid, p.id, prev, { c: p.pattern === "24" ? "24" : "N", t: true });
-    }
+    // szabadság az év során: 2–4 alkalommal 2–4 szolgálati nap
+    ppl[cid].forEach(p => {
+      const times = 2 + Math.floor(rnd() * 3);
+      for (let j = 0; j < times; j++) {
+        let d = add(`${now.getFullYear()}-01-01`, Math.floor(rnd() * 330)), k = 0, len = 2 + Math.floor(rnd() * 3);
+        for (let x = 0; x < 20 && k < len; x++, d = add(d, 1)) if (getCell(cid, p.id, d) && d <= end) { rosterCell(cid, p.id, d, { c: "SZ" }); k++; }
+      }
+    });
+    // túlóra: szolgálat utáni napon behívva (200%) vagy később (100%); pár embernek sok
+    const yearStart = `${now.getFullYear()}-01-01`;
+    const otCount = i => i === 0 || i === 7 ? 7 : i === 4 ? 5 : i % 3 === 0 ? 3 : 1 + Math.floor(rnd() * 2);
+    ppl[cid].forEach((p, i) => {
+      for (let j = 0; j < otCount(i); j++) {
+        let d = add(yearStart, Math.floor(rnd() * Math.max(10, (Math.round((new Date(end + "T12:00") - new Date(yearStart + "T12:00")) / 86400000) - 10))));
+        while (duty(d) !== cid) d = add(d, 1);
+        const gap = rnd() < 0.33 ? 1 : 2;                  // 1 nappal utána → 200%, 2 nappal → 100%
+        const od = add(d, gap);
+        if (od <= end && !getCell(cid, p.id, od)) rosterCell(cid, p.id, od, { c: p.pattern === "24" ? "24" : "N", t: true });
+      }
+    });
     // szabadságkérelmek
     const lp = ppl[cid];
     colMap("leave").set(`l${ci}a`, { classId: cid, personId: lp[3].id, personName: lp[3].name, from: add(t0, 10), to: add(t0, 14), kind: "Szabadság", note: "családi program", status: "függő", createdAt: { seconds: 0 } });

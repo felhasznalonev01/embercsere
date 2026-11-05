@@ -108,6 +108,16 @@ service cloud.firestore {
         && d().order is list && d().order.size() >= 1 && d().order.size() <= 10;
     }
 
+    // ---------------- Túlóra-korlát és célarány (csak a szolgálatvezetés állítja)
+    match /settings/limits {
+      allow read: if isLeader() || isAdmin();
+      allow write: if isAdmin()
+        && d().keys().hasOnly(['maxOvertime', 'share200', 'period'])
+        && d().maxOvertime is number && d().maxOvertime > 0 && d().maxOvertime <= 2000
+        && d().share200 is number && d().share200 >= 0 && d().share200 <= 100
+        && d().period in ['year', 'keret'];
+    }
+
     // ---------------- Szabadságkérelmek
     match /leave/{leaveId} {
       allow read: if inClass(resource.data.classId) || isAdmin();
