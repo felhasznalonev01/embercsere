@@ -332,7 +332,8 @@ function positionEditor() {
 }
 
 // Ember adatai (névre kattintva)
-function openPerson(pid, focusRange = false) {
+function openPerson(pid, rangeDate = null) {
+  const focusRange = !!rangeDate, rd = rangeDate || today();
   const p = personOf(pid); if (!p) return;
   modal(`<h2>${esc(p.name)}</h2>
     <div class="stack">
@@ -348,8 +349,8 @@ function openPerson(pid, focusRange = false) {
         <legend style="font-size:13px;padding:0 4px"><b>Időszak beállítása</b> (pl. betegség)</legend>
         <div class="row">
           <label>Mi <select id="prCode"><option value="B">Beteg</option><option value="SZ">Szabadság</option><option value="P">Pihenő</option><option value="K">Képzés</option><option value="">Üres (törlés)</option></select></label>
-          <label>Mettől <input type="date" id="prFrom" value="${sel?.pid === pid ? sel.date : today()}"></label>
-          <label>Meddig <input type="date" id="prTo" value="${sel?.pid === pid ? sel.date : today()}"></label>
+          <label>Mettől <input type="date" id="prFrom" value="${rd}"></label>
+          <label>Meddig <input type="date" id="prTo" value="${rd}"></label>
           <button type="button" id="prApply">Beírás</button>
         </div>
         <div class="hint muted" style="font-size:12px;margin-top:4px">Az időszak minden napját felülírja (a túlórát és a kölcsönadást nem érinti).</div>
@@ -672,7 +673,7 @@ function wire() {
     else if (e.target.closest?.("[data-goclass]")) { me = e.target.closest("[data-goclass]").dataset.goclass; render(); }
     else if (d.code !== undefined) applyCode(d.code);
     else if (t.id === "edClose" || t.id === "edClose2") { sel = null; renderGrid(); }
-    else if (t.id === "edRange") { const pid = sel.pid; openPerson(pid, true); }
+    else if (t.id === "edRange") { const { pid, date } = sel; openPerson(pid, date); }
     else if (t.id === "edTReset") { const cur = cellOf(sel.pid, sel.date); setCell(sel.pid, sel.date, { ...cur, s: null, e: null }); }
     else if (d.fill) openFill(d.fill);
     else if (d.lf) { leaveFilter = d.lf; render(); }
