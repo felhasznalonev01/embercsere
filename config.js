@@ -35,6 +35,18 @@ export const ROLES = ["Irányító", "Régió parancsnok", "020-as", "009-es", "
 export const SHIFTS = ["Nappal", "Éjszaka"];
 export const SHIFT_CODE = { "Nappal": "N", "Éjszaka": "É" };
 
+// Emberenként nyilvántartott érvényességek (vizsgák, alkalmasságok)
+export const EXAMS = [
+  { id: "pszich", label: "Pszichológiai" },
+  { id: "eu",     label: "Egészségügyi" },
+  { id: "fiz",    label: "Fizikai" },
+  { id: "lo",     label: "Lőkiképzés" }
+];
+// Ennyi nappal a lejárat előtt figyelmeztet (narancs), lejárt = piros
+export const EXAM_WARN_DAYS = 30;
+// Alapértelmezett éves szabadság (új embernél)
+export const DEFAULT_LEAVE_DAYS = 25;
+
 // 4) Szolgálat-kódok a beosztás-táblázatban
 //    start = kezdés, hours = hány óra; work = munkaidőnek számít; absence = távollét
 //    duty = beszámít a napi létszámba

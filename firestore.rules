@@ -75,10 +75,11 @@ service cloud.firestore {
     match /people/{personId} {
       allow read: if inClass(resource.data.classId) || isAdmin();
       allow create: if leaderOf(d().classId)
-        && d().keys().hasOnly(['classId', 'name', 'pattern', 'role', 'active', 'createdAt'])
+        && d().keys().hasOnly(['classId', 'name', 'pattern', 'role', 'active', 'leaveDays', 'exams', 'createdAt'])
         && d().name is string && d().name.size() > 0 && d().name.size() <= 80
         && d().pattern in ['12', '24'];
       allow update: if leaderOf(resource.data.classId) && d().classId == resource.data.classId
+        && d().keys().hasOnly(['classId', 'name', 'pattern', 'role', 'active', 'leaveDays', 'exams', 'createdAt'])
         && d().name is string && d().name.size() > 0 && d().name.size() <= 80
         && d().pattern in ['12', '24'];
       allow delete: if leaderOf(resource.data.classId);

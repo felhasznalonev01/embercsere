@@ -112,7 +112,7 @@ async function firebaseBackend() {
 }
 
 // ---------------------------------------------------------------- Próbamód (a böngészőfülben tárolva)
-const DEMO_KEY = "embercsere-proba-v4";
+const DEMO_KEY = "embercsere-proba-v5";
 function demoBackend() {
   const ss = { get: k => { try { return sessionStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} } };
   const store = {};                 // col -> Map(id -> data)
@@ -222,7 +222,10 @@ function seedDemo(colMap) {
     ppl[cid] = [];
     for (let i = 0; i < 20; i++) {
       const id = `p${ci}_${i}`, pattern = i % 5 < 3 ? "24" : "12";
-      const p = { classId: cid, name: `${pick(last)} ${pick(first)}`, pattern, role: i < 10 ? roles[i % roles.length] : "", active: true };
+      // érvényességek: többnyire jövőbeli dátum, néhány hamarosan lejár vagy már lejárt
+      const ex = () => { const r = rnd(); return add(t0, r < 0.08 ? -Math.floor(rnd() * 40) - 1 : r < 0.18 ? Math.floor(rnd() * 28) + 1 : Math.floor(rnd() * 600) + 40); };
+      const p = { classId: cid, name: `${pick(last)} ${pick(first)}`, pattern, role: i < 10 ? roles[i % roles.length] : "", active: true,
+        leaveDays: 25 + Math.floor(rnd() * 11), exams: { pszich: ex(), eu: ex(), fiz: ex(), lo: ex() } };
       colMap("people").set(id, p); ppl[cid].push({ id, ...p });
       // a saját osztály szolgálati napján dolgozik: 24 órások 24-et, 12 órások felváltva N / É
       let k = 0;

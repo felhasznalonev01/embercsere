@@ -1,9 +1,9 @@
 // Szolgálatbeosztás – az osztályvezető a saját osztályát szerkeszti; a szolgálatvezetés mindet látja (csak olvasás).
-import { CLASSES, ROLES, CODES, PATTERNS, SHIFT_CODE, OVERTIME_200_WINDOW_HOURS, DEFAULT_TARGET, KERET } from "./config.js";
+import { CLASSES, ROLES, CODES, PATTERNS, SHIFT_CODE, OVERTIME_200_WINDOW_HOURS, DEFAULT_TARGET, KERET, EXAMS, EXAM_WARN_DAYS, DEFAULT_LEAVE_DAYS } from "./config.js";
 import { DELETE, NOW } from "./backend.js";
 import {
   $, esc, className, color, store, run, showError, start, today, addDays, range, monthsIn, monthKey, weekday, isHoliday,
-  isWorkday, keretOf, parse, fmtDate, DAYS_SHORT, lastOfMonth, dutyClassOf
+  isWorkday, keretOf, parse, fmtDate, DAYS_SHORT, lastOfMonth, dutyClassOf, daysBetween
 } from "./common.js";
 
 const MONTH_NAMES = ["január", "február", "március", "április", "május", "június", "július", "augusztus", "szeptember", "október", "november", "december"];
@@ -49,6 +49,24 @@ const H = 3600000;
 const fmtH = h => (Math.round(h * 10) / 10).toString().replace(".", ",");
 const classNo = id => CLASSES.findIndex(c => c.id === id) + 1;
 const isDuty = (cid, d) => dutyClassOf(rotation, d) === cid;
+
+// ---- Érvényességek (vizsgák) és szabadság
+// állapot: "bad" = lejárt / nincs megadva, "warn" = hamarosan lejár, "" = rendben
+function examState(dateStr) {
+  if (!dateStr) return "none";
+  const left = daysBetween(today(), dateStr);
+  return left < 0 ? "bad" : left <= EXAM_WARN_DAYS ? "warn" : "";
+}
+function examProblems(p) {
+  return EXAMS.map(x => ({ x, d: p.exams?.[x.id] || "", st: examState(p.exams?.[x.id]) })).filter(e => e.st === "bad" || e.st === "warn");
+}
+const fmtD = s => s ? s.replaceAll("-", ".") + "." : "–";
+// Idén felhasznált szabadság: az idei SZ-ek száma a beosztásban
+function leaveUsed(pid, year = today().slice(0, 4)) {
+  let n = 0;
+  for (const m in roster) if (m.startsWith(year)) for (const dd in roster[m]?.[pid] || {}) if (roster[m][pid][dd].c === "SZ") n++;
+  return n;
+}
 // Időpont szövegesen: "7:00–19:00" / röviden "7–19"
 function timeOf(code, short) {
   const c = CODES[code]; if (!c?.start || !c.hours) return "";
@@ -96,7 +114,9 @@ function resubscribe() {
   const v = viewRange(), k = keretOf(keretDate);
   const lo = addDays(v.from < k.from ? v.from : k.from, -2);
   const hi = v.to > k.to ? v.to : k.to;
-  const need = new Set(watched.flatMap(cid => monthsIn(lo, hi).map(m => `${cid}_${m}`)));
+  const y = today().slice(0, 4);
+  const months = new Set([...monthsIn(lo, hi), ...monthsIn(`${y}-01-01`, `${y}-12-31`)]);   // az egész év kell a szabadság-számításhoz
+  const need = new Set(watched.flatMap(cid => [...months].map(m => `${cid}_${m}`)));
   for (const key in subs.months) if (!need.has(key)) {
     subs.months[key](); delete subs.months[key];
     const [cid, m] = key.split("_"); if (rosterBy[cid]) delete rosterBy[cid][m];
@@ -184,7 +204,7 @@ function renderGrid() {
       return `<td class="cell ${dayCls(d)} ${v?.t || l.length ? "ot" : ""} ${isSel ? "sel" : ""}" style="${bg}" data-pid="${p.id}" data-date="${d}" ${canEdit ? 'draggable="true"' : ""}
         title="${esc(p.name)} · ${d}${code ? " · " + code.label + (timeOf(v.c) ? " " + timeOf(v.c) : "") : ""}${v?.t ? " · túlóra" : ""}${canEdit ? "\nKattints a módosításhoz, vagy húzd át cseréhez" : ""}">${v ? esc(v.c) + (v.t ? "+" : "") : ""}${lentHtml}</td>`;
     }).join("");
-    return `<tr><td class="name ${canEdit ? "clickable" : ""}" ${canEdit ? `data-person="${p.id}"` : ""} title="${esc(p.name)}${canEdit ? " – kattints az adataihoz és a minta szerinti kitöltéshez" : ""}">${esc(p.name)}<small>${p.pattern}h${p.role ? " · " + esc(p.role) : ""}</small>${canEdit ? `<button data-person="${p.id}" title="Szerkesztés">✎</button>` : ""}</td>${cells}</tr>`;
+    return `<tr><td class="name ${canEdit ? "clickable" : ""}" ${canEdit ? `data-person="${p.id}"` : ""} title="${esc(p.name)}${canEdit ? " – kattints az adataihoz és a minta szerinti kitöltéshez" : ""}">${esc(p.name)}${(() => { const pr = examProblems(p); return pr.length ? `<span class="warn ${pr.some(e => e.st === "bad") ? "exp-bad" : "exp-warn"}" title="${esc(pr.map(e => `${e.x.label}: ${e.st === "bad" ? "LEJÁRT" : "hamarosan lejár"} (${fmtD(e.d)})`).join("\n"))}">⚠</span>` : ""; })()}<small>${p.pattern}h${p.role ? " · " + esc(p.role) : ""}</small>${canEdit ? `<button data-person="${p.id}" title="Szerkesztés">✎</button>` : ""}</td>${cells}</tr>`;
   }).join("");
 
   // Kölcsönkapott emberek (más osztálytól)
@@ -307,12 +327,17 @@ function openPerson(pid) {
         <label>Munkarend <select id="ppPat"><option value="12" ${p.pattern === "12" ? "selected" : ""}>12 órás</option><option value="24" ${p.pattern === "24" ? "selected" : ""}>24 órás</option></select></label>
         <label>Beosztás <select id="ppRole"><option value="">–</option>${ROLES.map(r => `<option ${p.role === r ? "selected" : ""}>${esc(r)}</option>`).join("")}</select></label>
       </div>
+      <label>Éves szabadság (nap) <input type="number" id="ppLeave" min="0" max="99" value="${p.leaveDays ?? ""}" style="width:100px"> <span class="muted">idén felhasználva: ${leaveUsed(p.id)} nap</span></label>
+      <div class="row">${EXAMS.map(x => { const d = p.exams?.[x.id] || "", st = examState(d); return `<label>${esc(x.label)} érvényes eddig <input type="date" class="exam-input ${d && st === "bad" ? "exp-bad" : d && st === "warn" ? "exp-warn" : ""}" data-ppexam="${x.id}" value="${d}"></label>`; }).join("")}</div>
       <label style="flex-direction:row;gap:6px;align-items:center;color:var(--text);font-size:14px"><input type="checkbox" id="ppAct" ${p.active !== false ? "checked" : ""}> Aktív (ha kiveszed, eltűnik a beosztásból, de az adatai megmaradnak)</label>
       <div class="row"><button type="button" id="ppFill">Kitöltés mintával…</button><span class="grow" style="flex:1"></span><button type="button" class="danger" id="ppDel">🗑 Ember törlése</button></div>
     </div>`, async bg => {
     const name = bg.querySelector("#ppName").value.trim();
     if (!name) { alert("A név nem lehet üres."); return false; }
-    await run(() => be.update("people", pid, { name, pattern: bg.querySelector("#ppPat").value, role: bg.querySelector("#ppRole").value, active: bg.querySelector("#ppAct").checked }));
+    const exams = {}; bg.querySelectorAll("[data-ppexam]").forEach(i => { exams[i.dataset.ppexam] = i.value || ""; });
+    const lv = bg.querySelector("#ppLeave").value;
+    await run(() => be.update("people", pid, { name, pattern: bg.querySelector("#ppPat").value, role: bg.querySelector("#ppRole").value,
+      active: bg.querySelector("#ppAct").checked, leaveDays: lv === "" ? null : Math.max(0, Math.min(99, Number(lv))), exams }));
   });
   const bg = document.querySelector(".modal-bg");
   bg.querySelector("#ppFill").addEventListener("click", () => { bg.remove(); openFill(pid); });
@@ -381,23 +406,45 @@ function renderLeaves() {
 // ---------------------------------------------------------------- emberek
 function renderPeople() {
   document.querySelector("#tab-people > .card").hidden = !canEdit;
-  if (!canEdit) {
-    const list = people.slice().sort((a, b) => a.name.localeCompare(b.name, "hu"));
-    $("#peopleTable").innerHTML = list.length ? `<table class="plain"><thead><tr><th>Név</th><th>Munkarend</th><th>Beosztás</th><th>Aktív</th></tr></thead><tbody>
-      ${list.map(p => `<tr${p.active === false ? ' class="muted"' : ""}><td>${esc(p.name)}</td><td>${p.pattern} órás</td><td>${esc(p.role || "–")}</td><td>${p.active !== false ? "igen" : "nem"}</td></tr>`).join("")}</tbody></table>`
-      : `<div class="empty-list">Nincs felvett ember.</div>`;
-    return;
+  if (canEdit && !$("#pRole").options.length) {
+    $("#pRole").innerHTML = '<option value="">–</option>' + ROLES.map(r => `<option>${esc(r)}</option>`).join("");
+    $("#pExams").innerHTML = EXAMS.map(x => `<label>${esc(x.label)} érvényes eddig <input type="date" name="exam_${x.id}" class="exam-input"></label>`).join("");
+    $("#pForm").leaveDays.value = DEFAULT_LEAVE_DAYS;
   }
-  if (!$("#pRole").options.length) $("#pRole").innerHTML = '<option value="">–</option>' + ROLES.map(r => `<option>${esc(r)}</option>`).join("");
   const list = people.slice().sort((a, b) => (a.active === false) - (b.active === false) || a.name.localeCompare(b.name, "hu"));
-  $("#peopleTable").innerHTML = list.length ? `<table class="plain"><thead><tr><th>Név</th><th>Munkarend</th><th>Beosztás</th><th>Aktív</th><th></th></tr></thead><tbody>
-    ${list.map(p => `<tr${p.active === false ? ' class="muted"' : ""}>
-      <td><input value="${esc(p.name)}" data-pname="${p.id}" maxlength="80" style="width:100%;min-width:160px"></td>
+
+  // Lejárt / hamarosan lejáró érvényességek
+  const alerts = list.filter(p => p.active !== false).flatMap(p => examProblems(p).map(e => ({ p, ...e })))
+    .sort((a, b) => (a.d || "").localeCompare(b.d || ""));
+  $("#examAlerts").innerHTML = alerts.length ? `<div class="card alerts"><b>⚠ Lejárt vagy ${EXAM_WARN_DAYS} napon belül lejáró érvényességek (${alerts.length})</b><ul>
+    ${alerts.map(a => `<li><span class="${a.st === "bad" ? "exp-bad" : "exp-warn"}">${a.st === "bad" ? "LEJÁRT" : "lejár"}</span> · ${esc(a.p.name)} – ${esc(a.x.label)}: ${fmtD(a.d)}</li>`).join("")}</ul></div>` : "";
+
+  const leaveCell = p => {
+    const total = Number(p.leaveDays ?? 0), used = leaveUsed(p.id), left = total - used;
+    return `<span title="Idén felhasznált (beírt SZ): ${used} nap">${used} / ${total} · <b class="${left < 0 ? "exp-bad" : ""}">marad ${left}</b></span>`;
+  };
+  const examTd = (p, x) => {
+    const d = p.exams?.[x.id] || "", st = examState(d);
+    const cls = st === "bad" ? "exp-bad" : st === "warn" ? "exp-warn" : "";
+    return canEdit
+      ? `<td><input type="date" class="exam-input ${d ? cls : ""}" value="${d}" data-pexam="${p.id}|${x.id}"></td>`
+      : `<td class="${d ? cls : "muted"}">${fmtD(d)}</td>`;
+  };
+  const head = `<th>Név</th><th>Munkarend</th><th>Beosztás</th><th>Éves szabadság</th><th>Felhasznált / keret</th>${EXAMS.map(x => `<th>${esc(x.label)}</th>`).join("")}<th>Aktív</th>${canEdit ? "<th></th>" : ""}`;
+  $("#peopleTable").innerHTML = list.length ? `<table class="plain"><thead><tr>${head}</tr></thead><tbody>
+    ${list.map(p => canEdit ? `<tr${p.active === false ? ' class="muted"' : ""}>
+      <td><input value="${esc(p.name)}" data-pname="${p.id}" maxlength="80" style="width:100%;min-width:150px"></td>
       <td><select data-ppattern="${p.id}"><option value="12" ${p.pattern === "12" ? "selected" : ""}>12 órás</option><option value="24" ${p.pattern === "24" ? "selected" : ""}>24 órás</option></select></td>
       <td><select data-prole="${p.id}"><option value="">–</option>${ROLES.map(r => `<option ${p.role === r ? "selected" : ""}>${esc(r)}</option>`).join("")}</select></td>
+      <td><input type="number" min="0" max="99" value="${p.leaveDays ?? ""}" data-pleave="${p.id}" style="width:70px"> nap</td>
+      <td style="white-space:nowrap">${leaveCell(p)}</td>
+      ${EXAMS.map(x => examTd(p, x)).join("")}
       <td><input type="checkbox" data-pactive="${p.id}" ${p.active !== false ? "checked" : ""} title="Ha kiveszed a pipát, eltűnik a beosztásból, de az adatai megmaradnak"></td>
-      <td><button class="del" data-pdel="${p.id}" title="Törlés">✕</button></td></tr>`).join("")}
-    </tbody></table><p class="muted" style="font-size:13px">${people.filter(p => p.active !== false).length} aktív fő. A dolgozók ebből a névsorból választják ki magukat a szabadságkérelemnél.</p>`
+      <td><button class="del" data-pdel="${p.id}" title="Törlés">✕</button></td></tr>`
+      : `<tr${p.active === false ? ' class="muted"' : ""}><td>${esc(p.name)}</td><td>${p.pattern} órás</td><td>${esc(p.role || "–")}</td>
+      <td>${p.leaveDays ?? "–"} nap</td><td style="white-space:nowrap">${leaveCell(p)}</td>${EXAMS.map(x => examTd(p, x)).join("")}<td>${p.active !== false ? "igen" : "nem"}</td></tr>`).join("")}
+    </tbody></table><p class="muted" style="font-size:13px">${people.filter(p => p.active !== false).length} aktív fő. A felhasznált szabadság az idei, beosztásba beírt SZ napok száma.
+      A dátum <span class="exp-warn">narancs</span>, ha ${EXAM_WARN_DAYS} napon belül lejár, <span class="exp-bad">piros</span>, ha már lejárt.</p>`
     : `<div class="empty-list">Még nincs ember felvéve.</div>`;
 }
 
@@ -550,6 +597,8 @@ function wire() {
     else if (d.ppattern) run(() => be.update("people", d.ppattern, { pattern: t.value }));
     else if (d.prole !== undefined) run(() => be.update("people", d.prole, { role: t.value }));
     else if (d.pactive) run(() => be.update("people", d.pactive, { active: t.checked }));
+    else if (d.pleave) run(() => be.update("people", d.pleave, { leaveDays: t.value === "" ? null : Math.max(0, Math.min(99, Number(t.value))) }));
+    else if (d.pexam) { const [pid, ex] = d.pexam.split("|"); run(() => be.update("people", pid, { ["exams." + ex]: t.value || "" })); }
   });
   document.addEventListener("keydown", e => {
     if (!canEdit || !sel || tab !== "grid" || e.target.matches?.("input, select, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -617,7 +666,13 @@ function wire() {
     e.preventDefault();
     const f = e.target, name = f.name.value.trim();
     if (!name) return;
-    run(async () => { await be.add("people", { classId: me, name, pattern: f.pattern.value, role: f.role.value, active: true, createdAt: NOW }); f.name.value = ""; f.name.focus(); });
+    const exams = {}; EXAMS.forEach(x => { exams[x.id] = f["exam_" + x.id].value || ""; });
+    const lv = f.leaveDays.value;
+    run(async () => {
+      await be.add("people", { classId: me, name, pattern: f.pattern.value, role: f.role.value, active: true,
+        leaveDays: lv === "" ? null : Math.max(0, Math.min(99, Number(lv))), exams, createdAt: NOW });
+      f.name.value = ""; EXAMS.forEach(x => { f["exam_" + x.id].value = ""; }); f.name.focus();
+    });
   });
   $("#pBulk").addEventListener("submit", e => {
     e.preventDefault();
@@ -625,7 +680,7 @@ function wire() {
     if (!names.length) return;
     const pattern = $("#pBulkPattern").value;
     run(async () => {
-      for (const name of names) await be.add("people", { classId: me, name: name.slice(0, 80), pattern, role: "", active: true, createdAt: NOW });
+      for (const name of names) await be.add("people", { classId: me, name: name.slice(0, 80), pattern, role: "", active: true, leaveDays: DEFAULT_LEAVE_DAYS, exams: {}, createdAt: NOW });
       $("#pBulkText").value = "";
     });
   });
