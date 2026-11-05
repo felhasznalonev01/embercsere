@@ -1,6 +1,6 @@
 // Adatkezelés: Firebase (éles) vagy próbamód (csak a saját gépen).
 // Mindkettő ugyanazt az egyszerű felületet adja: watch / watchDoc / add / set / update / remove / batch.
-import { firebaseConfig, CLASSES } from "./config.js";
+import { firebaseConfig, CLASSES, ADMIN } from "./config.js";
 
 const SDK = "https://www.gstatic.com/firebasejs/10.12.2/";
 const notConfigured = !firebaseConfig.apiKey || firebaseConfig.apiKey === "IDE_JON";
@@ -15,6 +15,7 @@ export const DELETE = { __delete: true };
 // Melyik fiók melyik osztály és milyen szerepben
 export function accountOf(email) {
   const e = String(email || "").toLowerCase();
+  if (ADMIN && ADMIN.email.toLowerCase() === e) return { classId: null, role: "admin" };
   for (const c of CLASSES) {
     if (c.email.toLowerCase() === e) return { classId: c.id, role: "leader" };
     if (c.workerEmail && c.workerEmail.toLowerCase() === e) return { classId: c.id, role: "worker" };
@@ -22,6 +23,7 @@ export function accountOf(email) {
   return null;
 }
 export function emailFor(classId, role) {
+  if (role === "admin") return ADMIN.email;
   const c = CLASSES.find(x => x.id === classId);
   return role === "worker" ? c.workerEmail : c.email;
 }
@@ -109,23 +111,31 @@ async function firebaseBackend() {
   };
 }
 
-// ---------------------------------------------------------------- Próbamód (memóriában)
+// ---------------------------------------------------------------- Próbamód (a böngészőfülben tárolva)
+const DEMO_KEY = "embercsere-proba-v4";
 function demoBackend() {
+  const ss = { get: k => { try { return sessionStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} } };
   const store = {};                 // col -> Map(id -> data)
   const listeners = new Set();
-  let user = null, authCb = () => {};
   let n = 1;
   const colMap = c => (store[c] ||= new Map());
   const clone = v => JSON.parse(JSON.stringify(v));
+  const save = () => ss.set(DEMO_KEY, JSON.stringify({ n, store: Object.fromEntries(Object.entries(store).map(([c, m]) => [c, Object.fromEntries(m)])) }));
+  const saved = ss.get(DEMO_KEY);
+  if (saved) {
+    const o = JSON.parse(saved); n = o.n;
+    for (const c in o.store) store[c] = new Map(Object.entries(o.store[c]));
+  } else { seedDemo(colMap); save(); }
+  let user = JSON.parse(ss.get(DEMO_KEY + "-user") || "null"), authCb = () => {};
 
   const resolve = v => {
     if (v === NOW) return { seconds: Date.now() / 1000 };
     if (v && typeof v === "object" && !Array.isArray(v)) { const o = {}; for (const k in v) if (v[k] !== DELETE) o[k] = resolve(v[k]); return o; }
     return v;
   };
-  const deepMerge = (t, s) => {
-    for (const k in s) {
-      const v = s[k];
+  const deepMerge = (t, src) => {
+    for (const k in src) {
+      const v = src[k];
       if (v === DELETE) delete t[k];
       else if (v && typeof v === "object" && !Array.isArray(v) && v !== NOW && t[k] && typeof t[k] === "object" && !Array.isArray(t[k])) deepMerge(t[k], v);
       else t[k] = resolve(v);
@@ -142,13 +152,13 @@ function demoBackend() {
     const x = f.split(".").reduce((o, k) => o?.[k], d);
     return op === "==" ? x === v : op === ">=" ? x >= v : op === "<=" ? x <= v : op === "in" ? v.includes(x) : true;
   });
-  const emit = () => setTimeout(() => listeners.forEach(l => l.fire()));
+  const emit = () => { save(); setTimeout(() => listeners.forEach(l => l.fire())); };
 
   const api = {
     isDemo: true,
     onAuth(cb) { authCb = cb; cb(user); return () => {}; },
-    async login(classId, role) { user = { classId, role }; authCb(user); },
-    async logout() { user = null; authCb(null); },
+    async login(classId, role) { user = role === "admin" ? { classId: null, role } : { classId, role }; ss.set(DEMO_KEY + "-user", JSON.stringify(user)); authCb(user); },
+    async logout() { user = null; ss.set(DEMO_KEY + "-user", "null"); authCb(null); },
     watch(col, filters, cb) {
       const l = { fire: () => cb([...colMap(col)].filter(([, d]) => match(d, filters || [])).map(([id, d]) => ({ id, ...clone(d) }))) };
       listeners.add(l); setTimeout(l.fire); return () => listeners.delete(l);
@@ -180,9 +190,79 @@ function demoBackend() {
       emit();
     }
   };
-  // Próbamódhoz pár kitalált ember, hogy legyen mit nézni
-  const names = ["Kovács Péter", "Nagy Éva", "Szabó Gábor", "Tóth Anna", "Horváth Bence", "Kiss Réka", "Varga Dániel", "Molnár Júlia"];
-  ["o1", "o2", "o3", "o4"].forEach((cid, ci) => names.forEach((nm, i) =>
-    colMap("people").set(`p${ci}${i}`, { classId: cid, name: `${nm} (${ci + 1})`, pattern: i % 2 ? "12" : "24", role: "", active: true })));
   return api;
+}
+
+// Kitalált próbaadatok: 4 osztály × 20 ember, 3 hónap beosztás, cserék, szabadságok
+function seedDemo(colMap) {
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const pick = a => a[Math.floor(rnd() * a.length)];
+  const pad = x => String(x).padStart(2, "0");
+  const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const add = (s, k) => { const [y, m, d] = s.split("-").map(Number); return iso(new Date(y, m - 1, d + k, 12)); };
+  const now = new Date(), t0 = iso(now);
+  const start = iso(new Date(now.getFullYear(), now.getMonth() - 1, 1, 12));
+  const end = iso(new Date(now.getFullYear(), now.getMonth() + 2, 0, 12));
+  const last = ["Kovács", "Nagy", "Szabó", "Tóth", "Horváth", "Varga", "Kiss", "Molnár", "Németh", "Farkas", "Balogh", "Papp", "Takács", "Juhász", "Lakatos", "Mészáros", "Oláh", "Simon", "Rácz", "Fekete"];
+  const first = ["Péter", "Anna", "Gábor", "Éva", "Bence", "Réka", "Dániel", "Júlia", "Tamás", "Zsófia", "László", "Katalin", "Attila", "Eszter", "Zoltán", "Nóra", "Balázs", "Viktória", "Ádám", "Krisztina"];
+  const roles = ["Irányító", "Régió parancsnok", "020-as", "009-es", "Ügyeletvezető helyettes"];
+  const classes = ["o1", "o2", "o3", "o4"];
+  const ppl = {};
+  const rosterCell = (cid, pid, d, val) => {
+    const m = d.slice(0, 7), id = `${cid}_${m}`, mp = colMap("roster");
+    if (!mp.has(id)) mp.set(id, { classId: cid, month: m, cells: {} });
+    (mp.get(id).cells[pid] ||= {})[d.slice(8)] = val;
+  };
+  const getCell = (cid, pid, d) => colMap("roster").get(`${cid}_${d.slice(0, 7)}`)?.cells?.[pid]?.[d.slice(8)];
+  // szolgálati sorrend: a kezdőnaptól o1, o2, o3, o4, o1, ...
+  colMap("settings").set("rotation", { start, order: classes });
+  const duty = d => classes[((Math.round((new Date(d + "T12:00") - new Date(start + "T12:00")) / 86400000) % 4) + 4) % 4];
+  classes.forEach((cid, ci) => {
+    colMap("classSettings").set(cid, { classId: cid, target: 19 });
+    ppl[cid] = [];
+    for (let i = 0; i < 20; i++) {
+      const id = `p${ci}_${i}`, pattern = i % 5 < 3 ? "24" : "12";
+      const p = { classId: cid, name: `${pick(last)} ${pick(first)}`, pattern, role: i < 10 ? roles[i % roles.length] : "", active: true };
+      colMap("people").set(id, p); ppl[cid].push({ id, ...p });
+      // a saját osztály szolgálati napján dolgozik: 24 órások 24-et, 12 órások felváltva N / É
+      let k = 0;
+      for (let d = start; d <= end; d = add(d, 1)) {
+        if (duty(d) === cid) { rosterCell(cid, id, d, { c: pattern === "24" ? "24" : ((k + i) % 2 ? "É" : "N") }); k++; }
+      }
+    }
+    // néhány szabadság, betegség, túlóra
+    for (let j = 0; j < 5; j++) {
+      const p = pick(ppl[cid]), from = add(t0, Math.floor(rnd() * 40) - 15), len = 4 + Math.floor(rnd() * 6);
+      for (let x = 0; x < len; x++) if (getCell(cid, p.id, add(from, x))) rosterCell(cid, p.id, add(from, x), { c: j === 4 ? "B" : "SZ" });
+    }
+    // túlóra: a szolgálati nap előtti napon behívva (a saját osztálynál)
+    for (let j = 0; j < 6; j++) {
+      const p = pick(ppl[cid]); let d = add(t0, Math.floor(rnd() * 40) - 20);
+      while (duty(d) !== cid) d = add(d, 1);
+      const prev = add(d, 2);
+      if (!getCell(cid, p.id, prev)) rosterCell(cid, p.id, prev, { c: p.pattern === "24" ? "24" : "N", t: true });
+    }
+    // szabadságkérelmek
+    const lp = ppl[cid];
+    colMap("leave").set(`l${ci}a`, { classId: cid, personId: lp[3].id, personName: lp[3].name, from: add(t0, 10), to: add(t0, 14), kind: "Szabadság", note: "családi program", status: "függő", createdAt: { seconds: 0 } });
+    colMap("leave").set(`l${ci}b`, { classId: cid, personId: lp[7].id, personName: lp[7].name, from: add(t0, 20), to: add(t0, 21), kind: "Egyéb távollét", note: "", status: "függő", createdAt: { seconds: 0 } });
+    colMap("leave").set(`l${ci}c`, { classId: cid, personId: lp[11].id, personName: lp[11].name, from: add(t0, -5), to: add(t0, -2), kind: "Szabadság", note: "", status: "jóváhagyva", createdAt: { seconds: 0 } });
+  });
+  // embercsere: kérések és felajánlások
+  const nextDuty = (cid, from) => { let d = from; while (duty(d) !== cid) d = add(d, 1); return d; };
+  const reqs = [
+    { id: "r1", classId: "o1", date: nextDuty("o1", add(t0, 1)), shift: "Nappal", qty: [0, 0, 2, 0, 0], note: "szabadságok miatt" },
+    { id: "r2", classId: "o3", date: nextDuty("o3", add(t0, 3)), shift: "Éjszaka", qty: [1, 0, 0, 0, 0], note: "" },
+    { id: "r3", classId: "o2", date: nextDuty("o2", t0), shift: "Nappal", qty: [0, 0, 0, 1, 0], note: "" },
+    { id: "r4", classId: "o4", date: nextDuty("o4", add(t0, -4)), shift: "Éjszaka", qty: [0, 0, 1, 0, 1], note: "" }
+  ];
+  reqs.forEach(r => colMap("requests").set(r.id, { classId: r.classId, date: r.date, shift: r.shift, qty: r.qty, note: r.note, createdAt: { seconds: 0 } }));
+  const give = (r, roleIndex, slot, fromCid, pIdx) => {
+    const p = ppl[fromCid][pIdx];
+    colMap("offers").set(`${r.id}_${roleIndex}_${slot}`, { requestId: r.id, roleIndex, slot, classId: fromCid, person: p.name, personId: p.id, date: r.date, shift: r.shift, toClassId: r.classId, createdAt: { seconds: 0 } });
+  };
+  give(reqs[0], 2, 0, "o4", 2);
+  give(reqs[2], 3, 0, "o1", 3);
+  give(reqs[3], 2, 0, "o2", 4);
+  give(reqs[3], 4, 0, "o1", 5);
 }

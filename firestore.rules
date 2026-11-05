@@ -24,6 +24,8 @@ service cloud.firestore {
         'dolgozo4@example.com': 'o4'
       }.get(request.auth.token.email, 'nincs');
     }
+    // Szolgálatvezetés: minden osztályt lát, írni csak a szolgálati sorrendet tudja
+    function isAdmin() { return request.auth != null && request.auth.token.email == 'vezeto@example.com'; }
     function isLeader() { return request.auth != null && leaderClass() != 'nincs'; }
     function isWorker() { return request.auth != null && workerClass() != 'nincs'; }
     function inClass(cid) { return (isLeader() && leaderClass() == cid) || (isWorker() && workerClass() == cid); }
@@ -33,7 +35,7 @@ service cloud.firestore {
 
     // ---------------- Embercsere: csak osztályvezetők
     match /requests/{requestId} {
-      allow read: if isLeader();
+      allow read: if isLeader() || isAdmin();
       allow create: if isLeader()
         && d().keys().hasOnly(['classId', 'date', 'shift', 'qty', 'note', 'createdAt'])
         && d().classId == leaderClass()
@@ -47,7 +49,7 @@ service cloud.firestore {
     }
 
     match /offers/{offerId} {
-      allow read: if isLeader();
+      allow read: if isLeader() || isAdmin();
       allow create: if isLeader()
         && d().keys().hasOnly(['requestId', 'roleIndex', 'slot', 'classId', 'person', 'personId', 'date', 'shift', 'toClassId', 'createdAt'])
         && d().classId == leaderClass()
@@ -71,7 +73,7 @@ service cloud.firestore {
 
     // ---------------- Névsor: vezető szerkeszti, a dolgozók csak olvassák (a saját osztályukét)
     match /people/{personId} {
-      allow read: if inClass(resource.data.classId);
+      allow read: if inClass(resource.data.classId) || isAdmin();
       allow create: if leaderOf(d().classId)
         && d().keys().hasOnly(['classId', 'name', 'pattern', 'role', 'active', 'createdAt'])
         && d().name is string && d().name.size() > 0 && d().name.size() <= 80
@@ -84,7 +86,7 @@ service cloud.firestore {
 
     // ---------------- Beosztás: havonta egy dokumentum osztályonként ("o1_2026-11"), csak a vezető
     match /roster/{docId} {
-      allow read: if isLeader() && docId.split('_')[0] == leaderClass();
+      allow read: if (isLeader() && docId.split('_')[0] == leaderClass()) || isAdmin();
       allow write: if isLeader() && docId == leaderClass() + '_' + d().month
         && d().classId == leaderClass()
         && d().month is string && d().month.matches('^[0-9]{4}-[0-9]{2}$');
@@ -92,13 +94,22 @@ service cloud.firestore {
 
     // ---------------- Osztály-beállítások (napi cél-létszám)
     match /classSettings/{cid} {
-      allow read: if leaderOf(cid);
+      allow read: if leaderOf(cid) || isAdmin();
       allow write: if leaderOf(cid) && d().classId == cid && d().target is number;
+    }
+
+    // ---------------- Szolgálati sorrend (melyik nap melyik osztály van szolgálatban)
+    match /settings/rotation {
+      allow read: if isLeader() || isWorker() || isAdmin();
+      allow write: if isAdmin()
+        && d().keys().hasOnly(['start', 'order'])
+        && d().start is string && d().start.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d().order is list && d().order.size() >= 1 && d().order.size() <= 10;
     }
 
     // ---------------- Szabadságkérelmek
     match /leave/{leaveId} {
-      allow read: if inClass(resource.data.classId);
+      allow read: if inClass(resource.data.classId) || isAdmin();
       allow create: if inClass(d().classId)
         && d().keys().hasOnly(['classId', 'personId', 'personName', 'from', 'to', 'kind', 'note', 'status', 'createdAt'])
         && d().status == 'függő'

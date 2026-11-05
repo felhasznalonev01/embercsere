@@ -23,6 +23,10 @@ export const CLASSES = [
   { id: "o4", name: "4. osztály", email: "osztaly4@example.com", workerEmail: "dolgozo4@example.com" }
 ];
 
+// Szolgálatvezetői fiók: minden osztály beosztását látja (csak nézni tudja, szerkeszteni nem).
+//    Ha átírod, a firestore.rules fájlban is írd át!
+export const ADMIN = { email: "vezeto@example.com", name: "Szolgálatvezetés" };
+
 // 3) Beosztások (embercseréhez és a névsorhoz). A sorrendet NE változtasd,
 //    ha már vannak kérések (a végére hozzáírni lehet, legfeljebb 10 elem).
 export const ROLES = ["Irányító", "Régió parancsnok", "020-as", "009-es", "Ügyeletvezető helyettes"];

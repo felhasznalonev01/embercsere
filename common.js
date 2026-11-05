@@ -1,5 +1,5 @@
 // Közös részek: belépés, menü, hibaüzenet, dátum-segédek.
-import { CLASSES, FIXED_HOLIDAYS, KERET } from "./config.js";
+import { CLASSES, FIXED_HOLIDAYS, KERET, ADMIN } from "./config.js";
 import { createBackend } from "./backend.js";
 
 export const COLORS = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)"];
@@ -47,6 +47,14 @@ export function isHoliday(s) {
 }
 export const isWorkday = s => { const w = weekday(s); return w !== 0 && w !== 6 && !isHoliday(s); };
 
+// Szolgálati sorrend: melyik osztály van szolgálatban az adott napon (7-től másnap 7-ig)
+// rotation = { start: "YYYY-MM-DD", order: ["o1","o2","o3","o4"] }
+export function dutyClassOf(rotation, s) {
+  if (!rotation?.start || !rotation?.order?.length) return null;
+  const n = rotation.order.length, i = ((daysBetween(rotation.start, s) % n) + n) % n;
+  return rotation.order[i];
+}
+
 // A dátumot tartalmazó 4 havi munkaidőkeret első és utolsó napja
 export function keretOf(s) {
   const y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7));
@@ -77,7 +85,7 @@ export async function run(fn) {
 // ---------------------------------------------------------------- belépés + menü
 const PAGES = [
   { href: "index.html", title: "Embercsere", roles: ["leader"] },
-  { href: "szolgalat.html", title: "Szolgálatbeosztás", roles: ["leader"] },
+  { href: "szolgalat.html", title: "Szolgálatbeosztás", roles: ["leader", "admin"] },
   { href: "dolgozo.html", title: "Szabadságkérelem", roles: ["leader", "worker"] }
 ];
 
@@ -90,17 +98,17 @@ export async function start({ page, onUser, onLogout }) {
       <div class="me"><span class="muted" id="meRole"></span><b id="meName"></b><button id="logout">Kilépés</button></div>
     </div>
     <main class="banners">
-      <div class="banner" id="demoBanner" hidden><b>Próbamód:</b> ez csak a saját gépeden látszik, semmi nem mentődik, jelszó nélkül be lehet lépni. (Oldalváltáskor az adatok elvesznek.)</div>
+      <div class="banner" id="demoBanner" hidden><b>Próbamód:</b> ez csak a saját gépeden látszik, semmi nem mentődik, jelszó nélkül be lehet lépni. A kitalált adatok a böngészőfül bezárásáig megmaradnak.</div>
       <div class="banner error" id="errBanner" hidden></div>
     </main>
     <section class="card login" id="loginView" hidden>
       <h1 style="margin-bottom:16px">Belépés</h1>
       <form id="loginForm">
-        <label>Osztály <select id="loginClass" required>
-          <option value="">– válaszd ki –</option>${CLASSES.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}
-        </select></label>
         <label>Ki vagy? <select id="loginRole">
-          <option value="leader">Osztályvezető</option><option value="worker">Dolgozó</option>
+          <option value="leader">Osztályvezető</option><option value="worker">Dolgozó</option>${ADMIN ? `<option value="admin">${esc(ADMIN.name)} (minden osztály)</option>` : ""}
+        </select></label>
+        <label id="classLabel">Osztály <select id="loginClass">
+          <option value="">– válaszd ki –</option>${CLASSES.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}
         </select></label>
         <label id="passLabel">Jelszó <input type="password" id="loginPass" autocomplete="current-password"></label>
         <button class="primary" id="loginBtn">Belépés</button>
@@ -109,6 +117,8 @@ export async function start({ page, onUser, onLogout }) {
     </section>`);
   $("#loginRole").value = store.get("role") || (allowed.includes("leader") ? "leader" : "worker");
   $("#loginClass").value = store.get("class") || "";
+  const syncRole = () => { $("#classLabel").hidden = $("#loginRole").value === "admin"; };
+  $("#loginRole").addEventListener("change", syncRole); syncRole();
 
   let be;
   try { be = await createBackend(); }
@@ -119,7 +129,7 @@ export async function start({ page, onUser, onLogout }) {
   $("#loginForm").addEventListener("submit", async e => {
     e.preventDefault();
     const cid = $("#loginClass").value, role = $("#loginRole").value;
-    if (!cid) return ($("#loginErr").textContent = "Válaszd ki az osztályt.");
+    if (!cid && role !== "admin") return ($("#loginErr").textContent = "Válaszd ki az osztályt.");
     store.set("class", cid); store.set("role", role);
     $("#loginBtn").disabled = true; $("#loginErr").textContent = "";
     try { await be.login(cid, role, $("#loginPass").value); $("#loginPass").value = ""; }
@@ -137,15 +147,15 @@ export async function start({ page, onUser, onLogout }) {
       return;
     }
     if (!allowed.includes(user.role)) {
-      // Dolgozó nem láthatja a vezetői oldalakat
-      location.href = "dolgozo.html" + keep;
+      // Mindenki a neki szóló oldalra kerül
+      location.href = (user.role === "admin" ? "szolgalat.html" : "dolgozo.html") + keep;
       return;
     }
     $("#loginView").hidden = true; $("#topbar").hidden = false; $("#app").hidden = false;
     $("#nav").innerHTML = PAGES.filter(p => p.roles.includes(user.role))
       .map(p => `<a href="${p.href}${keep}" class="${p.href === page ? "on" : ""}">${p.title}</a>`).join("");
-    $("#meRole").textContent = user.role === "leader" ? "Osztályvezető:" : "Dolgozó:";
-    $("#meName").textContent = className(user.classId);
+    $("#meRole").textContent = user.role === "leader" ? "Osztályvezető:" : user.role === "admin" ? "" : "Dolgozó:";
+    $("#meName").textContent = user.role === "admin" ? ADMIN.name : className(user.classId);
     $("#meName").style.setProperty("--clr", color(user.classId));
     onUser(be, user);
   });

@@ -43,6 +43,8 @@ Kell hozzá: egy Google-fiók és egy GitHub-fiók (mindkettő ingyenes).
 
    A dolgozói jelszó **legyen más**, mint a vezetőé – a dolgozók csak a névsort és a
    szabadságkérelmeket látják, a beosztást és az embercserét nem.
+   **Szolgálatvezetői fiók** (minden osztály beosztását látja, és ő állítja a szolgálati sorrendet):
+   `vezeto@example.com` + egy külön jelszó.
 4. **Regisztráció tiltása:** **Settings** fül → **User actions** → a **„Enable create (sign-up)”**
    pipát **vedd ki** → Mentés. Így rajtad kívül senki nem tud új fiókot létrehozni.
    (A biztonsági szabályok amúgy is csak ezt a 4 fiókot engedik be, ez plusz védelem.)

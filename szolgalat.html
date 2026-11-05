@@ -31,9 +31,20 @@
   table.grid tr.borrowed td.cell { cursor: default; }
   table.grid tr.count td { font-weight: 700; position: sticky; bottom: 0; z-index: 2; height: 34px; }
   table.grid tr.count td.name { z-index: 3; }
-  td.low { background: var(--low) !important; color: var(--lowtext); }
-  td.okc { background: var(--okbg) !important; color: var(--oktext); }
-  td.high { background: var(--high) !important; color: var(--hightext); }
+  table.grid.overview td { font-weight: 700; height: 34px; }
+  table.grid.overview td.name { cursor: pointer; font-weight: 600; }
+  table.grid.overview td.name:hover { color: var(--accent); }
+  .readonly td.cell { cursor: default; }
+  table.grid th.duty { background: color-mix(in srgb, var(--clr) 22%, var(--card)); box-shadow: inset 0 3px 0 var(--clr); }
+  table.grid td.duty { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--clr) 45%, transparent), inset -2px 0 0 color-mix(in srgb, var(--clr) 45%, transparent); }
+  table.grid td.off { color: var(--muted); font-weight: 400; }
+  table.grid tr.dutyrow td { font-weight: 700; color: #fff; height: 26px; }
+  .rot-list { display: flex; flex-direction: column; gap: 6px; }
+  .rot-list div { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; border-left: 5px solid var(--clr); }
+  .rot-list div b { flex: 1; }
+  td.low, .legend b.low { background: var(--low) !important; color: var(--lowtext); }
+  td.okc, .legend b.okc { background: var(--okbg) !important; color: var(--oktext); }
+  td.high, .legend b.high { background: var(--high) !important; color: var(--hightext); }
 
   /* Szerkesztő sáv */
   .editor { position: sticky; bottom: 0; z-index: 30; margin-top: 10px; background: var(--card); border: 2px solid var(--accent);
@@ -53,6 +64,11 @@
 </head>
 <body>
 <main class="wide" id="app" hidden>
+  <div class="row no-print" id="adminBar" hidden style="margin-bottom:10px">
+    <label>Osztály <select id="viewClass"></select></label>
+    <button id="rotEdit">Szolgálati sorrend…</button>
+    <span class="muted" style="font-size:13px;padding-bottom:8px" id="rotInfo"></span>
+  </div>
   <div class="tabs" id="tabs">
     <button data-tab="grid" class="on">Beosztás</button>
     <button data-tab="keret">Keret és túlóra</button>
