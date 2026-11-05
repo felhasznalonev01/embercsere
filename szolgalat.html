@@ -17,7 +17,8 @@
   table.grid .name { position: sticky; left: 0; z-index: 2; background: var(--card); text-align: left; padding: 0 8px; min-width: 190px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   table.grid thead .name { z-index: 4; }
   table.grid .name small { color: var(--muted); margin-left: 4px; }
-  table.grid .name button { float: right; border: none; background: none; padding: 4px 2px; color: var(--muted); }
+  table.grid tbody .name { padding-right: 26px; }
+  table.grid .name button { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); border: none; background: none; padding: 4px 4px; color: var(--muted); }
   table.grid th.we, table.grid td.we { background: var(--weekend); }
   table.grid th.hol, table.grid td.hol { background: var(--holiday); }
   table.grid th.today { box-shadow: inset 0 -3px 0 var(--accent); }
@@ -35,6 +36,17 @@
   table.grid.overview td.name { cursor: pointer; font-weight: 600; }
   table.grid.overview td.name:hover { color: var(--accent); }
   .readonly td.cell { cursor: default; }
+  /* Teljes szélesség (1 hét / 2 hét / hónap) */
+  table.grid.fit { width: 100%; table-layout: fixed; }
+  table.grid.fit th.name, table.grid.fit td.name { width: 210px; }
+  table.grid.fit th, table.grid.fit td { min-width: 0; }
+  /* Áthúzás */
+  table.grid td.cell[draggable="true"] { cursor: grab; }
+  table.grid td.dragging { opacity: .4; }
+  table.grid td.dropover { outline: 3px dashed var(--accent) !important; outline-offset: -3px; }
+  .rot-list div[draggable="true"] { cursor: grab; }
+  .rot-list div.dropover { outline: 2px dashed var(--accent); }
+  .rot-list .grip { color: var(--muted); cursor: grab; }
   table.grid th.duty { background: color-mix(in srgb, var(--clr) 22%, var(--card)); box-shadow: inset 0 3px 0 var(--clr); }
   table.grid td.duty { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--clr) 45%, transparent), inset -2px 0 0 color-mix(in srgb, var(--clr) 45%, transparent); }
   table.grid td.off { color: var(--muted); font-weight: 400; }

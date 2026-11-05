@@ -160,7 +160,7 @@ function renderGrid() {
   // Fejléc: hónapok és napok
   const monthSpans = []; for (const d of days) { const m = monthKey(d); const last = monthSpans[monthSpans.length - 1]; if (last && last.m === m) last.n++; else monthSpans.push({ m, n: 1 }); }
   const headMonths = `<tr class="months"><th class="name"></th>${monthSpans.map(s => `<th colspan="${s.n}">${s.m.slice(0, 4)}. ${MONTH_NAMES[Number(s.m.slice(5)) - 1]}</th>`).join("")}</tr>`;
-  const headDays = `<tr class="days"><th class="name">Név</th>${days.map(d => `<th class="${dayCls(d)}">${Number(d.slice(8))}<small>${DAYS_SHORT[weekday(d)]}</small></th>`).join("")}</tr>`;
+  const headDays = `<tr class="days"><th class="name">Név <small style="font-weight:400" class="muted">· 1 nap = 7:00–7:00</small></th>${days.map(d => `<th class="${dayCls(d)}">${Number(d.slice(8))}<small>${DAYS_SHORT[weekday(d)]}</small></th>`).join("")}</tr>`;
 
   // Kölcsönadott események gyors kereséshez
   const lent = {};
@@ -173,7 +173,7 @@ function renderGrid() {
       const isSel = sel && sel.pid === p.id && sel.date === d;
       const bg = code ? `background:${code.color};color:#1d2330` : "";
       const lentHtml = l.map(o => `<span class="lent" title="Kölcsönadva: ${esc(className(o.toClassId))}, ${esc(o.shift)}">${SHIFT_CODE[o.shift]}→${classNo(o.toClassId)}</span>`).join("");
-      return `<td class="cell ${dayCls(d)} ${v?.t || l.length ? "ot" : ""} ${isSel ? "sel" : ""}" style="${bg}" data-pid="${p.id}" data-date="${d}"
+      return `<td class="cell ${dayCls(d)} ${v?.t || l.length ? "ot" : ""} ${isSel ? "sel" : ""}" style="${bg}" data-pid="${p.id}" data-date="${d}" ${canEdit ? 'draggable="true"' : ""}
         title="${esc(p.name)} · ${d}${code ? " · " + code.label : ""}${v?.t ? " · túlóra" : ""}">${v ? esc(v.c) + (v.t ? "+" : "") : ""}${lentHtml}</td>`;
     }).join("");
     return `<tr><td class="name" title="${esc(p.name)}">${esc(p.name)}<small>${p.pattern}h${p.role ? " · " + esc(p.role) : ""}</small>${canEdit ? `<button data-fill="${p.id}" title="Kitöltés mintával">⋯</button>` : ""}</td>${cells}</tr>`;
@@ -194,7 +194,7 @@ function renderGrid() {
   const countRow = days.map(d => countCell(me, d, target)).join("");
 
   $("#gridWrap").style.setProperty("--clr", color(me));
-  $("#gridWrap").innerHTML = ppl.length ? `<table class="grid"><thead>${headMonths}${headDays}</thead><tbody>
+  $("#gridWrap").innerHTML = ppl.length ? `<table class="grid ${gLen === "keret" ? "" : "fit"}"><thead>${headMonths}${headDays}</thead><tbody>
       ${rows}
       ${recvRows ? `<tr class="section"><td class="name">Kölcsönkapott</td><td colspan="${days.length}"></td></tr>${recvRows}` : ""}
       <tr class="count"><td class="name">Létszám / nap <small>cél: ${target}</small></td>${countRow}</tr>
@@ -204,6 +204,7 @@ function renderGrid() {
   $("#legend").innerHTML = CODE_KEYS.map(k => [k, CODES[k]]).map(([k, c]) => `<span><b style="background:${c.color};color:#1d2330">${k}</b>${c.label}${c.hours ? ` (${c.hours}h)` : ""}</span>`).join("") +
     `<span><b style="box-shadow:inset 0 0 0 2px #e08a00">N+</b>túlóra</span><span><b style="color:#b45309">É→4</b>kölcsönadva a 4. osztálynak</span>
      <span><b class="low">12</b>cél alatt</span><span><b class="okc">15</b>pont annyi</span><span><b class="high">17</b>több</span>
+     ${canEdit ? `<span><b>⇄</b>húzz át egy cellát egy másikra: a kettő helyet cserél (ugyanazon a napon két ember, vagy egy ember két napja)</span>` : ""}
      ${rotation ? `<span><b style="background:color-mix(in srgb, ${color(me)} 22%, transparent)">▔</b>az osztály szolgálati napja (7–7) – a létszámot csak ezeken a napokon színezi</span>` : `<span>Még nincs szolgálati sorrend beállítva (a szolgálatvezetés állítja be).</span>`}`;
   renderEditor();
 }
@@ -247,7 +248,7 @@ function renderOverview() {
   }).join("");
   const totals = days.map(d => `<td class="${dayCls(d)}" style="font-weight:700">${CLASSES.reduce((a, c) => a + headcount(c.id, d).total, 0)}</td>`).join("");
   const dutyRow = rotation ? `<tr class="dutyrow"><td class="name" style="color:var(--text)">Szolgálatban (7–7)</td>${days.map(d => { const c = dutyClassOf(rotation, d); return `<td style="background:${color(c)}" title="${d}: ${esc(className(c))}">${classNo(c)}</td>`; }).join("")}</tr>` : "";
-  $("#gridWrap").innerHTML = `<table class="grid overview"><thead>${headMonths}${headDays}</thead><tbody>${dutyRow}${rows}
+  $("#gridWrap").innerHTML = `<table class="grid overview ${gLen === "keret" ? "" : "fit"}"><thead>${headMonths}${headDays}</thead><tbody>${dutyRow}${rows}
     <tr class="section"><td class="name">Összesen</td>${totals}</tr></tbody></table>`;
   $("#legend").innerHTML = `<span>Napi létszám osztályonként (saját + kölcsönkapott). ${rotation ? "Színezve csak az osztály szolgálati napján." : ""}</span><span><b class="low">12</b>cél alatt</span><span><b class="okc">15</b>pont annyi</span><span><b class="high">17</b>több</span><span>Osztálynévre kattintva megnyílik az osztály beosztása.</span>`;
   $("#editor").hidden = true;
@@ -515,6 +516,51 @@ function wire() {
     else if (k === "escape") { sel = null; renderGrid(); }
   });
 
+  // ---- Áthúzásos csere a beosztásban
+  let drag = null;
+  document.addEventListener("dragstart", e => {
+    const td = e.target.closest?.("td.cell[draggable]");
+    if (td && canEdit) {
+      drag = { pid: td.dataset.pid, date: td.dataset.date };
+      td.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", drag.pid + "|" + drag.date);
+      return;
+    }
+    const row = e.target.closest?.(".rot-list [data-rot]");
+    if (row) { rotDrag = Number(row.dataset.rot); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(rotDrag)); }
+  });
+  document.addEventListener("dragover", e => {
+    const td = e.target.closest?.("td.cell[draggable]");
+    const row = e.target.closest?.(".rot-list [data-rot]");
+    if ((td && drag) || (row && rotDrag != null)) {
+      e.preventDefault();
+      document.querySelectorAll(".dropover").forEach(x => x !== (td || row) && x.classList.remove("dropover"));
+      (td || row).classList.add("dropover");
+    }
+  });
+  document.addEventListener("dragend", () => {
+    drag = null; rotDrag = null;
+    document.querySelectorAll(".dragging, .dropover").forEach(x => x.classList.remove("dragging", "dropover"));
+  });
+  document.addEventListener("drop", e => {
+    const td = e.target.closest?.("td.cell[draggable]");
+    if (td && drag) {
+      e.preventDefault();
+      const a = drag, b = { pid: td.dataset.pid, date: td.dataset.date };
+      drag = null;
+      document.querySelectorAll(".dragging, .dropover").forEach(x => x.classList.remove("dragging", "dropover"));
+      if (a.pid === b.pid && a.date === b.date) return;
+      const va = cellOf(a.pid, a.date), vb = cellOf(b.pid, b.date);
+      if (!va && !vb) return;
+      sel = { ...b };
+      run(() => be.batch(cellsWrites([{ pid: a.pid, date: a.date, val: vb }, { pid: b.pid, date: b.date, val: va }])));
+      return;
+    }
+    const row = e.target.closest?.(".rot-list [data-rot]");
+    if (row && rotDrag != null && rotMove) { e.preventDefault(); rotMove(rotDrag, Number(row.dataset.rot)); rotDrag = null; }
+  });
+
   $("#pForm").addEventListener("submit", e => {
     e.preventDefault();
     const f = e.target, name = f.name.value.trim();
@@ -533,17 +579,19 @@ function wire() {
   });
 }
 
+let rotDrag = null, rotMove = null;
 function openRotation() {
   let order = rotation?.order?.length ? [...rotation.order] : CLASSES.map(c => c.id);
+  rotMove = (from, to) => { if (from === to) return; const [x] = order.splice(from, 1); order.splice(to, 0, x); draw(); };
   const draw = () => {
-    document.querySelector("#rotList").innerHTML = order.map((cid, i) => `<div style="--clr:${color(cid)}"><span>${i + 1}.</span><b>${esc(className(cid))}</b>
+    document.querySelector("#rotList").innerHTML = order.map((cid, i) => `<div style="--clr:${color(cid)}" draggable="true" data-rot="${i}"><span class="grip" title="Húzd a helyére">⠿</span><span>${i + 1}.</span><b>${esc(className(cid))}</b>
       <button type="button" class="small" data-up="${i}" ${i ? "" : "disabled"}>▲</button><button type="button" class="small" data-down="${i}" ${i < order.length - 1 ? "" : "disabled"}>▼</button></div>`).join("");
     const st = document.querySelector("#rotStart").value;
     document.querySelector("#rotPreview").innerHTML = st ? "Így megy: " + range(st, addDays(st, 7)).map(d => `${d.slice(5).replace("-", ".")}. ${DAYS_SHORT[weekday(d)]}: <b>${classNo(order[((Math.round((parse(d) - parse(st)) / 86400000)) % order.length + order.length) % order.length])}</b>`).join(" · ") : "";
   };
   modal(`<h2>Szolgálati sorrend</h2>
     <div class="stack">
-      <p class="muted" style="margin:0;font-size:14px">Minden nap egy osztály van szolgálatban, 7-től másnap 7-ig. Állítsd be a sorrendet és hogy melyik naptól indul.</p>
+      <p class="muted" style="margin:0;font-size:14px">Minden nap egy osztály van szolgálatban, 7-től másnap 7-ig. Állítsd be a sorrendet (húzd a helyére, vagy a nyilakkal) és hogy melyik naptól indul.</p>
       <label>Ezen a napon az 1. helyen álló osztály van szolgálatban <input type="date" id="rotStart" value="${rotation?.start || today()}"></label>
       <div class="rot-list" id="rotList"></div>
       <div class="muted" style="font-size:13px" id="rotPreview"></div>
