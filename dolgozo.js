@@ -1,4 +1,4 @@
-// Dolgozói oldal: a dolgozó kiválasztja magát az osztálya névsorából, és szabadságot kér.
+// Beosztotti oldal: a beosztott kiválasztja magát az osztálya névsorából, és szabadságot kér.
 import { NOW } from "./backend.js";
 import { $, esc, store, run, showError, start, today, range, fmtDate } from "./common.js";
 

@@ -106,7 +106,7 @@ export async function start({ page, onUser, onLogout }) {
       <h1 style="margin-bottom:16px">Belépés</h1>
       <form id="loginForm">
         <label>Ki vagy? <select id="loginRole">
-          <option value="leader">Osztályvezető</option><option value="worker">Dolgozó</option>${ADMIN ? `<option value="admin">${esc(ADMIN.name)} (minden osztály)</option>` : ""}
+          <option value="leader">Osztályvezető</option><option value="worker">Beosztott</option>${ADMIN ? `<option value="admin">${esc(ADMIN.name)} (minden osztály)</option>` : ""}
         </select></label>
         <label id="classLabel">Osztály <select id="loginClass">
           <option value="">– válaszd ki –</option>${CLASSES.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}
@@ -148,14 +148,14 @@ export async function start({ page, onUser, onLogout }) {
       return;
     }
     if (!allowed.includes(user.role)) {
-      // Mindenki a neki szóló oldalra kerül
+      // Mindenki a neki szóló oldalra kerül (beosztott → szabadságkérelem)
       location.href = (user.role === "admin" ? "szolgalat.html" : "dolgozo.html") + keep;
       return;
     }
     $("#loginView").hidden = true; $("#topbar").hidden = false; $("#app").hidden = false;
     $("#nav").innerHTML = PAGES.filter(p => p.roles.includes(user.role))
       .map(p => `<a href="${p.href}${keep}" class="${p.href === page ? "on" : ""}">${p.title}</a>`).join("");
-    $("#meRole").textContent = user.role === "leader" ? "Osztályvezető:" : user.role === "admin" ? "" : "Dolgozó:";
+    $("#meRole").textContent = user.role === "leader" ? "Osztályvezető:" : user.role === "admin" ? "" : "Beosztott:";
     $("#meName").textContent = user.role === "admin" ? ADMIN.name : className(user.classId);
     $("#meName").style.setProperty("--clr", color(user.classId));
     onUser(be, user);

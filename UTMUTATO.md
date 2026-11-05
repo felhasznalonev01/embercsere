@@ -32,16 +32,16 @@ Kell hozzá: egy Google-fiók és egy GitHub-fiók (mindkettő ingyenes).
 
    Az e-mail címek nem valódiak, nem is kell, hogy azok legyenek – levél sosem megy rájuk.
    A jelszó legalább 6 karakter legyen. **Ezeket a jelszavakat adod oda az osztályoknak.**
-   **Dolgozói fiókok** (szabadságkérelemhez, osztályonként egy közös fiók) – ezt is **4-szer**:
+   **Beosztotti fiókok** (szabadságkérelemhez, osztályonként egy közös fiók) – ezt is **4-szer**:
 
    | E-mail                 | Jelszó                                  |
    |------------------------|-----------------------------------------|
-   | `dolgozo1@example.com` | az 1. osztály dolgozóinak közös jelszava |
-   | `dolgozo2@example.com` | … a 2. osztály dolgozóinak              |
-   | `dolgozo3@example.com` | … a 3. osztály dolgozóinak              |
-   | `dolgozo4@example.com` | … a 4. osztály dolgozóinak              |
+   | `dolgozo1@example.com` | az 1. osztály beosztottjainak közös jelszava |
+   | `dolgozo2@example.com` | … a 2. osztály beosztottjainak              |
+   | `dolgozo3@example.com` | … a 3. osztály beosztottjainak              |
+   | `dolgozo4@example.com` | … a 4. osztály beosztottjainak              |
 
-   A dolgozói jelszó **legyen más**, mint a vezetőé – a dolgozók csak a névsort és a
+   A beosztotti jelszó **legyen más**, mint a vezetőé – a beosztottak csak a névsort és a
    szabadságkérelmeket látják, a beosztást és az embercserét nem.
    **Szolgálatvezetői fiók** (minden osztály beosztását látja, és ő állítja a szolgálati sorrendet):
    `vezeto@example.com` + egy külön jelszó.
