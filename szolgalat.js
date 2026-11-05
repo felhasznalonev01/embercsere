@@ -317,7 +317,7 @@ function renderEditor() {
       <select id="edPct" ${v?.t ? "" : "disabled"} title="Túlóra-pótlék"><option value="">% automatikus</option><option value="100" ${v?.p === 100 ? "selected" : ""}>100%</option><option value="200" ${v?.p === 200 ? "selected" : ""}>200%</option></select>
       <span class="hint">${pctInfo}</span>
     </div>
-    <div class="ed-row"><button class="danger" data-code="" ${v ? "" : "disabled"}>🗑 Törlés</button><span class="grow" style="flex:1"></span><button id="edClose2">Kész</button></div>
+    <div class="ed-row"><button class="danger" data-code="" ${v ? "" : "disabled"}>🗑 Törlés</button><button id="edRange" title="Betegség, szabadság stb. beírása több napra egyszerre">📅 Időszakra…</button><span class="grow" style="flex:1"></span><button id="edClose2">Kész</button></div>
     <div class="hint">Gyorsbillentyűk: N, E, 2 (=24), K, S, B, P · Del = törlés · + = túlóra · nyilak = lépés</div>`;
   positionEditor();
 }
@@ -332,7 +332,7 @@ function positionEditor() {
 }
 
 // Ember adatai (névre kattintva)
-function openPerson(pid) {
+function openPerson(pid, focusRange = false) {
   const p = personOf(pid); if (!p) return;
   modal(`<h2>${esc(p.name)}</h2>
     <div class="stack">
@@ -365,6 +365,7 @@ function openPerson(pid) {
   });
   const bg = document.querySelector(".modal-bg");
   bg.querySelector("#ppFill").addEventListener("click", () => { bg.remove(); openFill(pid); });
+  if (focusRange) { const fs = bg.querySelector("#prCode").closest("fieldset"); fs.style.borderColor = "var(--accent)"; fs.scrollIntoView({ block: "center" }); bg.querySelector("#prTo").focus(); }
   bg.querySelector("#prApply").addEventListener("click", () => {
     const c = bg.querySelector("#prCode").value, f = bg.querySelector("#prFrom").value, t = bg.querySelector("#prTo").value;
     if (!f || !t || t < f) return alert("Ellenőrizd a dátumokat (a „Meddig” nem lehet korábbi).");
@@ -671,6 +672,7 @@ function wire() {
     else if (e.target.closest?.("[data-goclass]")) { me = e.target.closest("[data-goclass]").dataset.goclass; render(); }
     else if (d.code !== undefined) applyCode(d.code);
     else if (t.id === "edClose" || t.id === "edClose2") { sel = null; renderGrid(); }
+    else if (t.id === "edRange") { const pid = sel.pid; openPerson(pid, true); }
     else if (t.id === "edTReset") { const cur = cellOf(sel.pid, sel.date); setCell(sel.pid, sel.date, { ...cur, s: null, e: null }); }
     else if (d.fill) openFill(d.fill);
     else if (d.lf) { leaveFilter = d.lf; render(); }
