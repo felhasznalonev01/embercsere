@@ -49,6 +49,13 @@ const H = 3600000;
 const fmtH = h => (Math.round(h * 10) / 10).toString().replace(".", ",");
 const classNo = id => CLASSES.findIndex(c => c.id === id) + 1;
 const isDuty = (cid, d) => dutyClassOf(rotation, d) === cid;
+// Időpont szövegesen: "7:00–19:00" / röviden "7–19"
+function timeOf(code, short) {
+  const c = CODES[code]; if (!c?.start || !c.hours) return "";
+  const [h, m] = c.start.split(":").map(Number), e = (h * 60 + m + c.hours * 60) % 1440;
+  const f = (x, mm) => short && !mm ? `${x}` : `${x}:${String(mm).padStart(2, "0")}`;
+  return `${f(h, m)}–${f(Math.floor(e / 60), e % 60)}`;
+}
 
 function viewRange() {
   if (gLen === "month") { const m = monthKey(gFrom); return { from: m + "-01", to: lastOfMonth(m) }; }
@@ -129,6 +136,7 @@ function cellsWrites(list) {      // list: [{pid, date, val}]
 function render() {
   if (!me) return;
   syncView();
+  $("#adminBar").hidden = user.role !== "admin";
   if (user.role === "admin") {
     $("#adminBar").hidden = false;
     $("#viewClass").innerHTML = `<option value="all">Összesítő – minden osztály</option>` + CLASSES.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
@@ -160,7 +168,7 @@ function renderGrid() {
   // Fejléc: hónapok és napok
   const monthSpans = []; for (const d of days) { const m = monthKey(d); const last = monthSpans[monthSpans.length - 1]; if (last && last.m === m) last.n++; else monthSpans.push({ m, n: 1 }); }
   const headMonths = `<tr class="months"><th class="name"></th>${monthSpans.map(s => `<th colspan="${s.n}">${s.m.slice(0, 4)}. ${MONTH_NAMES[Number(s.m.slice(5)) - 1]}</th>`).join("")}</tr>`;
-  const headDays = `<tr class="days"><th class="name">Név <small style="font-weight:400" class="muted">· 1 nap = 7:00–7:00</small></th>${days.map(d => `<th class="${dayCls(d)}">${Number(d.slice(8))}<small>${DAYS_SHORT[weekday(d)]}</small></th>`).join("")}</tr>`;
+  const headDays = `<tr class="days"><th class="name">Név</th>${days.map(d => `<th class="${dayCls(d)}" title="${isDuty(me, d) ? "Az osztály szolgálati napja: 7:00-tól másnap 7:00-ig" : ""}">${Number(d.slice(8))}<small>${DAYS_SHORT[weekday(d)]}</small>${isDuty(me, d) ? '<small class="dlbl">7–7</small>' : ""}</th>`).join("")}</tr>`;
 
   // Kölcsönadott események gyors kereséshez
   const lent = {};
@@ -174,9 +182,9 @@ function renderGrid() {
       const bg = code ? `background:${code.color};color:#1d2330` : "";
       const lentHtml = l.map(o => `<span class="lent" title="Kölcsönadva: ${esc(className(o.toClassId))}, ${esc(o.shift)}">${SHIFT_CODE[o.shift]}→${classNo(o.toClassId)}</span>`).join("");
       return `<td class="cell ${dayCls(d)} ${v?.t || l.length ? "ot" : ""} ${isSel ? "sel" : ""}" style="${bg}" data-pid="${p.id}" data-date="${d}" ${canEdit ? 'draggable="true"' : ""}
-        title="${esc(p.name)} · ${d}${code ? " · " + code.label : ""}${v?.t ? " · túlóra" : ""}">${v ? esc(v.c) + (v.t ? "+" : "") : ""}${lentHtml}</td>`;
+        title="${esc(p.name)} · ${d}${code ? " · " + code.label + (timeOf(v.c) ? " " + timeOf(v.c) : "") : ""}${v?.t ? " · túlóra" : ""}${canEdit ? "\nKattints a módosításhoz, vagy húzd át cseréhez" : ""}">${v ? esc(v.c) + (v.t ? "+" : "") : ""}${lentHtml}</td>`;
     }).join("");
-    return `<tr><td class="name" title="${esc(p.name)}">${esc(p.name)}<small>${p.pattern}h${p.role ? " · " + esc(p.role) : ""}</small>${canEdit ? `<button data-fill="${p.id}" title="Kitöltés mintával">⋯</button>` : ""}</td>${cells}</tr>`;
+    return `<tr><td class="name ${canEdit ? "clickable" : ""}" ${canEdit ? `data-person="${p.id}"` : ""} title="${esc(p.name)}${canEdit ? " – kattints az adataihoz és a minta szerinti kitöltéshez" : ""}">${esc(p.name)}<small>${p.pattern}h${p.role ? " · " + esc(p.role) : ""}</small>${canEdit ? `<button data-person="${p.id}" title="Szerkesztés">✎</button>` : ""}</td>${cells}</tr>`;
   }).join("");
 
   // Kölcsönkapott emberek (más osztálytól)
@@ -201,10 +209,12 @@ function renderGrid() {
     </tbody></table>`
     : `<div class="empty-list">Még nincs ember felvéve. Az <b>Emberek</b> fülön tudod felvinni őket.</div>`;
 
-  $("#legend").innerHTML = CODE_KEYS.map(k => [k, CODES[k]]).map(([k, c]) => `<span><b style="background:${c.color};color:#1d2330">${k}</b>${c.label}${c.hours ? ` (${c.hours}h)` : ""}</span>`).join("") +
+  $("#gridHelp").innerHTML = canEdit
+    ? `<div class="gridhelp"><span>✎ <b>Kattints egy cellára</b> a módosításhoz vagy törléshez</span><span>⇄ <b>Húzd át</b> a cellát egy másikra: a kettő helyet cserél</span><span>👤 <b>Kattints a névre</b> az ember adataihoz és a minta szerinti kitöltéshez</span></div>`
+    : `<div class="viewonly" id="viewonly">👁 <b>Csak megtekintés.</b> A beosztást az osztályvezetők szerkesztik – ehhez osztályvezetőként kell belépni.${be.isDemo ? " (Próbamódban: Kilépés → Ki vagy? → Osztályvezető.)" : ""}</div>`;
+  $("#legend").innerHTML = CODE_KEYS.map(k => [k, CODES[k]]).map(([k, c]) => `<span><b style="background:${c.color};color:#1d2330">${k}</b>${c.label}${timeOf(k) ? ` ${timeOf(k)}` : ""}</span>`).join("") +
     `<span><b style="box-shadow:inset 0 0 0 2px #e08a00">N+</b>túlóra</span><span><b style="color:#b45309">É→4</b>kölcsönadva a 4. osztálynak</span>
      <span><b class="low">12</b>cél alatt</span><span><b class="okc">15</b>pont annyi</span><span><b class="high">17</b>több</span>
-     ${canEdit ? `<span><b>⇄</b>húzz át egy cellát egy másikra: a kettő helyet cserél (ugyanazon a napon két ember, vagy egy ember két napja)</span>` : ""}
      ${rotation ? `<span><b style="background:color-mix(in srgb, ${color(me)} 22%, transparent)">▔</b>az osztály szolgálati napja (7–7) – a létszámot csak ezeken a napokon színezi</span>` : `<span>Még nincs szolgálati sorrend beállítva (a szolgálatvezetés állítja be).</span>`}`;
   renderEditor();
 }
@@ -250,6 +260,7 @@ function renderOverview() {
   const dutyRow = rotation ? `<tr class="dutyrow"><td class="name" style="color:var(--text)">Szolgálatban (7–7)</td>${days.map(d => { const c = dutyClassOf(rotation, d); return `<td style="background:${color(c)}" title="${d}: ${esc(className(c))}">${classNo(c)}</td>`; }).join("")}</tr>` : "";
   $("#gridWrap").innerHTML = `<table class="grid overview ${gLen === "keret" ? "" : "fit"}"><thead>${headMonths}${headDays}</thead><tbody>${dutyRow}${rows}
     <tr class="section"><td class="name">Összesen</td>${totals}</tr></tbody></table>`;
+  $("#gridHelp").innerHTML = "";
   $("#legend").innerHTML = `<span>Napi létszám osztályonként (saját + kölcsönkapott). ${rotation ? "Színezve csak az osztály szolgálati napján." : ""}</span><span><b class="low">12</b>cél alatt</span><span><b class="okc">15</b>pont annyi</span><span><b class="high">17</b>több</span><span>Osztálynévre kattintva megnyílik az osztály beosztása.</span>`;
   $("#editor").hidden = true;
 }
@@ -262,20 +273,52 @@ function renderEditor() {
   let pctInfo = "";
   if (v?.t) {
     const evs = eventsOf(sel.pid); const e = evs.find(x => x.date === sel.date && !x.lent);
-    if (e) pctInfo = `automatikusan: ${pctOf({ ...e, pct: null }, evs)}%`;
+    if (e) pctInfo = `automatikusan ${pctOf({ ...e, pct: null }, evs)}%`;
   }
   ed.hidden = false;
-  ed.innerHTML = `<span class="who">${esc(p.name)} · ${fmtDate(sel.date)}</span>
-    <span class="codes row" style="gap:4px">${CODE_KEYS.map(k => `<button data-code="${k}" class="${v?.c === k ? "primary" : ""}" style="${v?.c === k ? "" : `background:${CODES[k].color};color:#1d2330`}">${k}</button>`).join("")}
-      <button data-code="">Üres</button></span>
-    <label style="flex-direction:row;align-items:center;gap:6px;font-size:14px;color:var(--text)"><input type="checkbox" id="edOt" ${v?.t ? "checked" : ""} ${v && CODES[v.c]?.work ? "" : "disabled"}> Túlóra</label>
-    <select id="edPct" ${v?.t ? "" : "disabled"} title="Túlóra-pótlék">
-      <option value="">% automatikus</option><option value="100" ${v?.p === 100 ? "selected" : ""}>100%</option><option value="200" ${v?.p === 200 ? "selected" : ""}>200%</option>
-    </select>
-    <span class="muted" style="font-size:12px">${pctInfo}</span>
-    <span class="grow" style="flex:1"></span>
-    <span class="muted" style="font-size:12px">Billentyűk: N, E, 2 (24), K, S, B, P · Del törlés · + túlóra · nyilak</span>
-    <button id="edClose">✕</button>`;
+  ed.innerHTML = `<div class="ed-head"><div><b>${esc(p.name)}</b><small>${fmtDate(sel.date)}${isDuty(me, sel.date) ? " · szolgálati nap 7–7" : ""}</small></div><button id="edClose" title="Bezár">✕</button></div>
+    <div class="ed-codes">${CODE_KEYS.map(k => `<button data-code="${k}" class="${v?.c === k ? "cur" : ""}" style="background:${CODES[k].color}" title="${CODES[k].label}">${k}<small>${timeOf(k, true) || CODES[k].label}</small></button>`).join("")}</div>
+    <div class="ed-row">
+      <label style="flex-direction:row;align-items:center;gap:6px;font-size:14px;color:var(--text)"><input type="checkbox" id="edOt" ${v?.t ? "checked" : ""} ${v && CODES[v.c]?.work ? "" : "disabled"}> Túlóra</label>
+      <select id="edPct" ${v?.t ? "" : "disabled"} title="Túlóra-pótlék"><option value="">% automatikus</option><option value="100" ${v?.p === 100 ? "selected" : ""}>100%</option><option value="200" ${v?.p === 200 ? "selected" : ""}>200%</option></select>
+      <span class="hint">${pctInfo}</span>
+    </div>
+    <div class="ed-row"><button class="danger" data-code="" ${v ? "" : "disabled"}>🗑 Törlés</button><span class="grow" style="flex:1"></span><button id="edClose2">Kész</button></div>
+    <div class="hint">Gyorsbillentyűk: N, E, 2 (=24), K, S, B, P · Del = törlés · + = túlóra · nyilak = lépés</div>`;
+  positionEditor();
+}
+// A szerkesztőt a kijelölt cella mellé teszi (ha kifér, jobbra, különben balra)
+function positionEditor() {
+  const ed = $("#editor"), td = document.querySelector("td.sel");
+  if (ed.hidden || !td) return;
+  const r = td.getBoundingClientRect(), w = ed.offsetWidth, h = ed.offsetHeight;
+  let left = r.right + 8; if (left + w > innerWidth - 8) left = Math.max(8, r.left - w - 8);
+  let top = Math.min(Math.max(8, r.top - 10), innerHeight - h - 8);
+  ed.style.left = left + "px"; ed.style.top = top + "px";
+}
+
+// Ember adatai (névre kattintva)
+function openPerson(pid) {
+  const p = personOf(pid); if (!p) return;
+  modal(`<h2>${esc(p.name)}</h2>
+    <div class="stack">
+      <label>Név <input id="ppName" value="${esc(p.name)}" maxlength="80"></label>
+      <div class="row">
+        <label>Munkarend <select id="ppPat"><option value="12" ${p.pattern === "12" ? "selected" : ""}>12 órás</option><option value="24" ${p.pattern === "24" ? "selected" : ""}>24 órás</option></select></label>
+        <label>Beosztás <select id="ppRole"><option value="">–</option>${ROLES.map(r => `<option ${p.role === r ? "selected" : ""}>${esc(r)}</option>`).join("")}</select></label>
+      </div>
+      <label style="flex-direction:row;gap:6px;align-items:center;color:var(--text);font-size:14px"><input type="checkbox" id="ppAct" ${p.active !== false ? "checked" : ""}> Aktív (ha kiveszed, eltűnik a beosztásból, de az adatai megmaradnak)</label>
+      <div class="row"><button type="button" id="ppFill">Kitöltés mintával…</button><span class="grow" style="flex:1"></span><button type="button" class="danger" id="ppDel">🗑 Ember törlése</button></div>
+    </div>`, async bg => {
+    const name = bg.querySelector("#ppName").value.trim();
+    if (!name) { alert("A név nem lehet üres."); return false; }
+    await run(() => be.update("people", pid, { name, pattern: bg.querySelector("#ppPat").value, role: bg.querySelector("#ppRole").value, active: bg.querySelector("#ppAct").checked }));
+  });
+  const bg = document.querySelector(".modal-bg");
+  bg.querySelector("#ppFill").addEventListener("click", () => { bg.remove(); openFill(pid); });
+  bg.querySelector("#ppDel").addEventListener("click", () => {
+    if (confirm(`Törlöd: ${p.name}?\nHa csak nem dolgozik már itt, inkább vedd ki az „Aktív” pipát – úgy a korábbi adatai megmaradnak.`)) { bg.remove(); sel = null; run(() => be.remove("people", pid)); }
+  });
 }
 
 // ---------------------------------------------------------------- keret és túlóra
@@ -460,7 +503,7 @@ function wire() {
   document.addEventListener("click", e => {
     const t = e.target.closest("button, td.cell") || e.target;
     const d = t.dataset || {};
-    if (d.tab) { tab = d.tab; store.set("sz.tab", tab); render(); }
+    if (d.tab) { tab = d.tab; sel = null; store.set("sz.tab", tab); render(); }
     else if (d.len) { gLen = d.len; store.set("sz.len", gLen); resubscribe(); render(); }
     else if (t.id === "gPrev" || t.id === "gNext") {
       const dir = t.id === "gPrev" ? -1 : 1;
@@ -477,15 +520,20 @@ function wire() {
     }
     else if (t.id === "kExport") exportKeret();
     else if (t.id === "rotEdit" && user?.role === "admin") openRotation();
-    else if (t.matches?.("td.cell") && d.pid) { if (canEdit) { sel = { pid: d.pid, date: d.date }; renderGrid(); } }
+    else if (t.matches?.("td.cell") && d.pid) {
+      if (canEdit) { sel = { pid: d.pid, date: d.date }; renderGrid(); }
+      else { const v = $("#viewonly"); if (v) { v.classList.remove("flash"); void v.offsetWidth; v.classList.add("flash"); } }
+    }
+    else if (e.target.closest?.("[data-person]") && canEdit) openPerson(e.target.closest("[data-person]").dataset.person);
     else if (e.target.closest?.("[data-goclass]")) { me = e.target.closest("[data-goclass]").dataset.goclass; render(); }
     else if (d.code !== undefined) applyCode(d.code);
-    else if (t.id === "edClose") { sel = null; renderGrid(); }
+    else if (t.id === "edClose" || t.id === "edClose2") { sel = null; renderGrid(); }
     else if (d.fill) openFill(d.fill);
     else if (d.lf) { leaveFilter = d.lf; render(); }
     else if (d.approve) approveLeave(d.approve);
     else if (d.reject) { const l = leaves.find(x => x.id === d.reject); if (confirm(`Elutasítod ${l.personName} kérelmét?`)) run(() => be.update("leave", l.id, { status: "elutasítva", decidedAt: NOW })); }
     else if (d.delleave) { const l = leaves.find(x => x.id === d.delleave); if (confirm(`Törlöd ${l.personName} kérelmét? (A beosztásba már beírt SZ megmarad.)`)) run(() => be.remove("leave", l.id)); }
+    else if (sel && !e.target.closest?.("#editor, .modal-bg, td.cell")) { sel = null; renderGrid(); }
     else if (d.pdel) {
       const p = personOf(d.pdel);
       if (confirm(`Törlöd: ${p.name}?\nHa csak nem dolgozik már itt, inkább vedd ki az „Aktív” pipát – úgy a korábbi adatai megmaradnak.`)) run(() => be.remove("people", p.id));
@@ -515,6 +563,10 @@ function wire() {
     else if (k === "arrowup") { e.preventDefault(); moveSel(0, -1); }
     else if (k === "escape") { sel = null; renderGrid(); }
   });
+
+  // A szerkesztő kövesse a cellát görgetéskor / átméretezéskor
+  addEventListener("resize", positionEditor);
+  addEventListener("scroll", positionEditor, true);
 
   // ---- Áthúzásos csere a beosztásban
   let drag = null;
