@@ -1,14 +1,13 @@
 rules_version = '2';
 
-// Embercsere – Firestore biztonsági szabályok.
-// Ezt a teljes szöveget kell bemásolni: Firebase konzol → Firestore Database → Szabályok (Rules) → Közzététel (Publish).
+// Embercsere + Szolgálatbeosztás – Firestore biztonsági szabályok.
 // Ha a config.js-ben átírod a fiókok e-mail címét, itt is írd át ugyanúgy!
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Melyik fiók melyik osztály
-    function myClass() {
+    // Osztályvezetők fiókjai
+    function leaderClass() {
       return {
         'osztaly1@example.com': 'o1',
         'osztaly2@example.com': 'o2',
@@ -16,49 +15,104 @@ service cloud.firestore {
         'osztaly4@example.com': 'o4'
       }.get(request.auth.token.email, 'nincs');
     }
-    function member() {
-      return request.auth != null && myClass() != 'nincs';
+    // Dolgozói (közös) fiókok
+    function workerClass() {
+      return {
+        'dolgozo1@example.com': 'o1',
+        'dolgozo2@example.com': 'o2',
+        'dolgozo3@example.com': 'o3',
+        'dolgozo4@example.com': 'o4'
+      }.get(request.auth.token.email, 'nincs');
     }
-    function req(id) {
-      return get(/databases/$(database)/documents/requests/$(id)).data;
-    }
+    function isLeader() { return request.auth != null && leaderClass() != 'nincs'; }
+    function isWorker() { return request.auth != null && workerClass() != 'nincs'; }
+    function inClass(cid) { return (isLeader() && leaderClass() == cid) || (isWorker() && workerClass() == cid); }
+    function leaderOf(cid) { return isLeader() && leaderClass() == cid; }
+    function req(id) { return get(/databases/$(database)/documents/requests/$(id)).data; }
+    function d() { return request.resource.data; }
 
-    // Kérések: csak a saját osztályod nevében kérhetsz, és csak a sajátodat törölheted
+    // ---------------- Embercsere: csak osztályvezetők
     match /requests/{requestId} {
-      allow read: if member();
-      allow create: if member()
-        && request.resource.data.keys().hasOnly(['classId', 'date', 'shift', 'qty', 'note', 'createdAt'])
-        && request.resource.data.classId == myClass()
-        && request.resource.data.date is string
-        && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-        && request.resource.data.shift is string && request.resource.data.shift.size() <= 20
-        && request.resource.data.qty is list && request.resource.data.qty.size() <= 10
-        && request.resource.data.note is string && request.resource.data.note.size() <= 500
-        && request.resource.data.createdAt == request.time;
-      allow delete: if member() && resource.data.classId == myClass();
+      allow read: if isLeader();
+      allow create: if isLeader()
+        && d().keys().hasOnly(['classId', 'date', 'shift', 'qty', 'note', 'createdAt'])
+        && d().classId == leaderClass()
+        && d().date is string && d().date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d().shift is string && d().shift.size() <= 20
+        && d().qty is list && d().qty.size() <= 10
+        && d().note is string && d().note.size() <= 500
+        && d().createdAt == request.time;
+      allow delete: if leaderOf(resource.data.classId);
       allow update: if false;
     }
 
-    // Felajánlások ("Adok 1-et"): csak a saját osztályod nevében, más osztály kérésére,
-    // és csak amíg van szabad hely (minden helynek saját azonosítója van, így nem lehet túltölteni)
     match /offers/{offerId} {
-      allow read: if member();
-      allow create: if member()
-        && request.resource.data.keys().hasOnly(['requestId', 'roleIndex', 'slot', 'classId', 'person', 'createdAt'])
-        && request.resource.data.classId == myClass()
-        && request.resource.data.person is string
-        && request.resource.data.person.size() > 0 && request.resource.data.person.size() <= 100
-        && request.resource.data.roleIndex is int && request.resource.data.roleIndex >= 0
-        && request.resource.data.slot is int && request.resource.data.slot >= 0
-        && offerId == request.resource.data.requestId + '_' + string(request.resource.data.roleIndex) + '_' + string(request.resource.data.slot)
-        && req(request.resource.data.requestId).classId != myClass()
-        && request.resource.data.roleIndex < req(request.resource.data.requestId).qty.size()
-        && request.resource.data.slot < req(request.resource.data.requestId).qty[request.resource.data.roleIndex]
-        && request.resource.data.createdAt == request.time;
+      allow read: if isLeader();
+      allow create: if isLeader()
+        && d().keys().hasOnly(['requestId', 'roleIndex', 'slot', 'classId', 'person', 'personId', 'date', 'shift', 'toClassId', 'createdAt'])
+        && d().classId == leaderClass()
+        && d().person is string && d().person.size() > 0 && d().person.size() <= 100
+        && d().personId is string && d().personId.size() <= 60
+        && d().roleIndex is int && d().roleIndex >= 0
+        && d().slot is int && d().slot >= 0
+        && offerId == d().requestId + '_' + string(d().roleIndex) + '_' + string(d().slot)
+        && req(d().requestId).classId != leaderClass()
+        && d().toClassId == req(d().requestId).classId
+        && d().date == req(d().requestId).date
+        && d().shift == req(d().requestId).shift
+        && d().roleIndex < req(d().requestId).qty.size()
+        && d().slot < req(d().requestId).qty[d().roleIndex]
+        && d().createdAt == request.time;
       // Visszavonhatja aki adta, vagy akinek a kérése
-      allow delete: if member()
-        && (resource.data.classId == myClass() || req(resource.data.requestId).classId == myClass());
+      allow delete: if isLeader()
+        && (resource.data.classId == leaderClass() || resource.data.toClassId == leaderClass());
       allow update: if false;
+    }
+
+    // ---------------- Névsor: vezető szerkeszti, a dolgozók csak olvassák (a saját osztályukét)
+    match /people/{personId} {
+      allow read: if inClass(resource.data.classId);
+      allow create: if leaderOf(d().classId)
+        && d().keys().hasOnly(['classId', 'name', 'pattern', 'role', 'active', 'createdAt'])
+        && d().name is string && d().name.size() > 0 && d().name.size() <= 80
+        && d().pattern in ['12', '24'];
+      allow update: if leaderOf(resource.data.classId) && d().classId == resource.data.classId
+        && d().name is string && d().name.size() > 0 && d().name.size() <= 80
+        && d().pattern in ['12', '24'];
+      allow delete: if leaderOf(resource.data.classId);
+    }
+
+    // ---------------- Beosztás: havonta egy dokumentum osztályonként ("o1_2026-11"), csak a vezető
+    match /roster/{docId} {
+      allow read: if isLeader() && docId.split('_')[0] == leaderClass();
+      allow write: if isLeader() && docId == leaderClass() + '_' + d().month
+        && d().classId == leaderClass()
+        && d().month is string && d().month.matches('^[0-9]{4}-[0-9]{2}$');
+    }
+
+    // ---------------- Osztály-beállítások (napi cél-létszám)
+    match /classSettings/{cid} {
+      allow read: if leaderOf(cid);
+      allow write: if leaderOf(cid) && d().classId == cid && d().target is number;
+    }
+
+    // ---------------- Szabadságkérelmek
+    match /leave/{leaveId} {
+      allow read: if inClass(resource.data.classId);
+      allow create: if inClass(d().classId)
+        && d().keys().hasOnly(['classId', 'personId', 'personName', 'from', 'to', 'kind', 'note', 'status', 'createdAt'])
+        && d().status == 'függő'
+        && d().from is string && d().to is string && d().from <= d().to
+        && d().personName is string && d().personName.size() <= 80
+        && d().note is string && d().note.size() <= 300
+        && d().createdAt == request.time;
+      // Elbírálni csak a vezető tudja (csak az állapotot és az időpontot módosíthatja)
+      allow update: if leaderOf(resource.data.classId)
+        && d().diff(resource.data).affectedKeys().hasOnly(['status', 'decidedAt'])
+        && d().status in ['jóváhagyva', 'elutasítva', 'függő'];
+      // Törölni a vezető bármikor, a dolgozó csak amíg függő (visszavonás)
+      allow delete: if leaderOf(resource.data.classId)
+        || (isWorker() && workerClass() == resource.data.classId && resource.data.status == 'függő');
     }
   }
 }

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Szabadságkérelem</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main id="app" hidden style="max-width:720px">
+  <section class="card">
+    <h2>Ki vagy?</h2>
+    <label>Válaszd ki a nevedet <select id="who"></select></label>
+    <p class="muted" style="font-size:13px;margin:8px 0 0">Ha nem találod magad, szólj az osztályvezetődnek, hogy vegyen fel a névsorba.</p>
+  </section>
+
+  <section class="card" id="formCard" hidden>
+    <h2>Szabadságkérelem leadása</h2>
+    <form id="lForm" class="row">
+      <label>Mettől <input type="date" name="from" required></label>
+      <label>Meddig <input type="date" name="to" required></label>
+      <label>Típus <select name="kind"><option>Szabadság</option><option>Egyéb távollét</option></select></label>
+      <label style="flex:1;min-width:200px">Megjegyzés (nem kötelező) <input name="note" maxlength="300"></label>
+      <button class="primary">Leadom</button>
+    </form>
+  </section>
+
+  <section class="card" id="listCard" hidden>
+    <h2>Kérelmeim</h2>
+    <div class="table-wrap" id="mine"></div>
+  </section>
+</main>
+<script type="module" src="dolgozo.js"></script>
+</body>
+</html>

@@ -4,30 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Embercsere</title>
+<link rel="stylesheet" href="styles.css">
 <style>
-  :root {
-    --bg: #f5f6f8; --card: #fff; --text: #1d2330; --muted: #6b7280; --line: #e3e6eb; --soft: #f0f2f5;
-    --accent: #2f6fde; --danger: #d14343; --ok: #1f9d6b; --warn: #c27a12;
-    --c1: #2f6fde; --c2: #1f9d6b; --c3: #d9822b; --c4: #8a4fd6;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #14171c; --card: #1d2128; --text: #e7e9ee; --muted: #9aa3b2; --line: #2c323c; --soft: #252a33; }
-  }
-  * { box-sizing: border-box; }
-  [hidden] { display: none !important; }
-  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
-  main { max-width: 1050px; margin: 0 auto; padding: 20px 16px 60px; }
-  header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
-  h1 { font-size: 24px; margin: 0; }
-  h2 { font-size: 16px; margin: 0 0 12px; }
-  .me { display: flex; align-items: center; gap: 10px; }
-  .me b { padding: 6px 12px; border-radius: 8px; background: var(--card); border: 2px solid var(--clr); }
-  .banner { background: #fff1c9; color: #6b4a00; border: 1px solid #f1d98a; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 14px; }
-  .error { background: #fde8e8; color: #8a1f1f; border-color: #f3b4b4; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
-  .login { max-width: 380px; margin: 10vh auto; }
-  .login form { display: flex; flex-direction: column; gap: 12px; }
-  .login .err { color: var(--danger); font-size: 14px; min-height: 1.2em; }
   .grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
   .cls { border-top: 4px solid var(--clr); cursor: pointer; margin: 0; padding: 12px 14px; }
   .cls.active { outline: 2px solid var(--clr); }
@@ -36,36 +14,16 @@
   .cls .nums b { display: block; font-size: 20px; color: var(--text); }
   .cls .export { margin-top: 8px; font-size: 13px; color: var(--accent); background: none; border: none; padding: 0; }
   .cls .export:hover { text-decoration: underline; }
-  input, select, button { font: inherit; padding: 7px 9px; border-radius: 7px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
-  button { cursor: pointer; font-size: 14px; }
-  button:disabled { opacity: .6; cursor: wait; }
-  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-  button.give { background: var(--ok); color: #fff; border-color: var(--ok); padding: 4px 10px; }
-  button.del { border: none; background: none; color: var(--danger); padding: 2px 6px; }
-  .field { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
-  label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
-  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
-  .seg button { border: none; border-radius: 0; padding: 7px 14px; }
-  .seg button.on { background: var(--accent); color: #fff; }
   .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin: 12px 0; }
   .role { display: flex; justify-content: space-between; align-items: center; padding: 6px 6px 6px 12px; border: 1px solid var(--line); border-radius: 8px; }
   .role.has { border-color: var(--accent); background: var(--soft); }
   .stepper { display: flex; align-items: center; gap: 4px; }
   .stepper button { width: 30px; height: 30px; padding: 0; }
   .stepper span { min-width: 22px; text-align: center; font-weight: 600; }
-  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 12px; }
-  .toolbar .grow { flex: 1; }
   .req { border-left: 5px solid var(--clr); }
   .req-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
   .req-head .who, .req-head .date { font-weight: 600; }
   .req-head .spacer { flex: 1; }
-  .pill { font-size: 12px; padding: 2px 9px; border-radius: 99px; background: var(--soft); border: 1px solid var(--line); }
-  .pill.night { background: #23284a; color: #dfe3ff; border-color: #23284a; }
-  .pill.day { background: #fff1c9; color: #6b4a00; border-color: #f1d98a; }
-  .badge { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; color: #fff; }
-  .badge.open { background: var(--warn); }
-  .badge.done { background: var(--ok); }
   .need { display: grid; grid-template-columns: 190px 1fr; gap: 6px 12px; padding: 8px 0; border-top: 1px solid var(--line); align-items: start; }
   @media (max-width: 600px) { .need { grid-template-columns: 1fr; } }
   .need .rname { font-weight: 500; }
@@ -75,66 +33,40 @@
   .chip .from { color: var(--muted); font-size: 12px; }
   .chip.empty { color: var(--muted); border-style: dashed; padding-right: 10px; background: none; }
   .give-form { display: inline-flex; gap: 4px; flex-wrap: wrap; }
-  .give-form input { padding: 4px 8px; width: 170px; }
+  .give-form input, .give-form select { padding: 4px 8px; max-width: 220px; }
   .note { color: var(--muted); font-size: 14px; margin-top: 6px; }
-  .empty-list { color: var(--muted); text-align: center; padding: 30px; }
-  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--clr); margin-right: 6px; }
-  .muted { color: var(--muted); }
   .past { opacity: .6; }
 </style>
 </head>
 <body>
-<main>
-  <div class="banner" id="demoBanner" hidden>
-    <b>Próbamód:</b> a Firebase még nincs beállítva (config.js). Ez csak a saját gépeden látszik: semmi nem mentődik, jelszó nélkül be lehet lépni.
-  </div>
-  <div class="banner error" id="errBanner" hidden></div>
+<main id="app" hidden>
+  <div class="grid4" id="classes"></div>
 
-  <!-- Belépés -->
-  <section class="card login" id="loginView" hidden>
-    <h1 style="margin-bottom:16px">Embercsere</h1>
-    <form id="loginForm">
-      <label>Osztály <select id="loginClass" required></select></label>
-      <label>Jelszó <input type="password" id="loginPass" autocomplete="current-password"></label>
-      <button class="primary" id="loginBtn">Belépés</button>
-      <div class="err" id="loginErr"></div>
-    </form>
+  <section class="card">
+    <h2>Embert kérek</h2>
+    <div class="row">
+      <label>Nap <input type="date" id="rDate"></label>
+      <div class="field"><span>Napszak</span><span class="seg" id="rShift"></span></div>
+      <label style="flex:1;min-width:200px">Megjegyzés (nem kötelező) <input id="rNote" maxlength="500" placeholder="pl. 6:00-tól, szabadság miatt"></label>
+    </div>
+    <div class="roles" id="rRoles"></div>
+    <div class="row">
+      <button class="primary" id="rSubmit">Kérés feladása</button>
+      <span class="muted" id="rSummary"></span>
+    </div>
   </section>
 
-  <!-- Fő oldal -->
-  <div id="appView" hidden>
-    <header>
-      <h1>Embercsere / kölcsönkérés</h1>
-      <div class="me"><span class="muted">Belépve:</span><b id="meName"></b><button id="logout">Kilépés</button></div>
-    </header>
-
-    <div class="grid4" id="classes"></div>
-
-    <section class="card">
-      <h2>Embert kérek</h2>
-      <div class="row">
-        <label>Nap <input type="date" id="rDate"></label>
-        <div class="field"><span>Napszak</span><span class="seg" id="rShift"></span></div>
-        <label style="flex:1;min-width:200px">Megjegyzés (nem kötelező) <input id="rNote" maxlength="500" placeholder="pl. 6:00-tól, szabadság miatt"></label>
-      </div>
-      <div class="roles" id="rRoles"></div>
-      <div class="row">
-        <button class="primary" id="rSubmit">Kérés feladása</button>
-        <span class="muted" id="rSummary"></span>
-      </div>
-    </section>
-
-    <section>
-      <div class="toolbar">
-        <div class="field"><span>Mutasd</span><span class="seg" id="fStatus"></span></div>
-        <label>Osztály <select id="fClass"></select></label>
-        <label>Ettől a naptól <input type="date" id="fFrom"></label>
-        <span class="grow"></span>
-        <button id="exportAll">Összes letöltése Excelbe</button>
-      </div>
-      <div id="list"><div class="card empty-list">Betöltés…</div></div>
-    </section>
-  </div>
+  <section>
+    <div class="toolbar">
+      <div class="field"><span>Mutasd</span><span class="seg" id="fStatus"></span></div>
+      <label>Osztály <select id="fClass"></select></label>
+      <label>Ettől a naptól <input type="date" id="fFrom"></label>
+      <span class="grow"></span>
+      <button id="exportAll">Összes letöltése Excelbe</button>
+    </div>
+    <div id="list"><div class="card empty-list">Betöltés…</div></div>
+    <p class="muted" style="font-size:13px">Az oldal a 2 hétnél régebbi kéréseket nem mutatja (de megmaradnak).</p>
+  </section>
 </main>
 <script type="module" src="app.js"></script>
 </body>

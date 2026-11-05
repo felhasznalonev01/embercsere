@@ -32,6 +32,17 @@ Kell hozzá: egy Google-fiók és egy GitHub-fiók (mindkettő ingyenes).
 
    Az e-mail címek nem valódiak, nem is kell, hogy azok legyenek – levél sosem megy rájuk.
    A jelszó legalább 6 karakter legyen. **Ezeket a jelszavakat adod oda az osztályoknak.**
+   **Dolgozói fiókok** (szabadságkérelemhez, osztályonként egy közös fiók) – ezt is **4-szer**:
+
+   | E-mail                 | Jelszó                                  |
+   |------------------------|-----------------------------------------|
+   | `dolgozo1@example.com` | az 1. osztály dolgozóinak közös jelszava |
+   | `dolgozo2@example.com` | … a 2. osztály dolgozóinak              |
+   | `dolgozo3@example.com` | … a 3. osztály dolgozóinak              |
+   | `dolgozo4@example.com` | … a 4. osztály dolgozóinak              |
+
+   A dolgozói jelszó **legyen más**, mint a vezetőé – a dolgozók csak a névsort és a
+   szabadságkérelmeket látják, a beosztást és az embercserét nem.
 4. **Regisztráció tiltása:** **Settings** fül → **User actions** → a **„Enable create (sign-up)”**
    pipát **vedd ki** → Mentés. Így rajtad kívül senki nem tud új fiókot létrehozni.
    (A biztonsági szabályok amúgy is csak ezt a 4 fiókot engedik be, ez plusz védelem.)

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Szolgálatbeosztás</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* Beosztás-táblázat */
+  .grid-wrap { overflow: auto; max-height: calc(100vh - 230px); border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+  table.grid { border-collapse: separate; border-spacing: 0; font-size: 13px; }
+  table.grid th, table.grid td { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 0; text-align: center; min-width: 34px; height: 30px; }
+  table.grid thead th { position: sticky; background: var(--card); z-index: 3; font-weight: 500; }
+  table.grid thead tr.months th { top: 0; height: 24px; font-size: 12px; color: var(--muted); text-align: left; padding-left: 6px; }
+  table.grid thead tr.days th { top: 24px; height: 38px; line-height: 1.1; }
+  table.grid thead tr.days th small { display: block; color: var(--muted); font-size: 10px; font-weight: 400; }
+  table.grid .name { position: sticky; left: 0; z-index: 2; background: var(--card); text-align: left; padding: 0 8px; min-width: 190px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  table.grid thead .name { z-index: 4; }
+  table.grid .name small { color: var(--muted); margin-left: 4px; }
+  table.grid .name button { float: right; border: none; background: none; padding: 4px 2px; color: var(--muted); }
+  table.grid th.we, table.grid td.we { background: var(--weekend); }
+  table.grid th.hol, table.grid td.hol { background: var(--holiday); }
+  table.grid th.today { box-shadow: inset 0 -3px 0 var(--accent); }
+  table.grid td.cell { cursor: pointer; position: relative; font-weight: 600; }
+  table.grid td.cell:hover { outline: 2px solid var(--accent); outline-offset: -2px; }
+  table.grid td.sel { outline: 3px solid var(--accent) !important; outline-offset: -3px; }
+  table.grid td.ot { box-shadow: inset 0 0 0 2px #e08a00; }
+  table.grid td .lent { display: block; font-size: 10px; font-weight: 600; color: #b45309; line-height: 1; }
+  table.grid tr.section td { background: var(--soft); text-align: left; padding: 4px 8px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  table.grid tr.section td.name { background: var(--soft); }
+  table.grid tr.borrowed td.cell { cursor: default; }
+  table.grid tr.count td { font-weight: 700; position: sticky; bottom: 0; z-index: 2; height: 34px; }
+  table.grid tr.count td.name { z-index: 3; }
+  td.low { background: var(--low) !important; color: var(--lowtext); }
+  td.okc { background: var(--okbg) !important; color: var(--oktext); }
+  td.high { background: var(--high) !important; color: var(--hightext); }
+
+  /* Szerkesztő sáv */
+  .editor { position: sticky; bottom: 0; z-index: 30; margin-top: 10px; background: var(--card); border: 2px solid var(--accent);
+    border-radius: 10px; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; box-shadow: 0 -4px 20px rgba(0,0,0,.08); }
+  .editor .who { font-weight: 600; margin-right: 6px; }
+  .editor .codes button { min-width: 42px; font-weight: 600; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .legend span b { display: inline-block; min-width: 26px; text-align: center; border-radius: 4px; padding: 0 4px; color: var(--text); margin-right: 4px; }
+  .target-input { width: 70px; }
+  .pos { color: var(--ok); font-weight: 600; } .neg { color: var(--danger); font-weight: 600; }
+  @media print {
+    .topbar, .toolbar, .tabs, .editor, .banners, .no-print { display: none !important; }
+    .grid-wrap { max-height: none; overflow: visible; border: none; }
+    body { background: #fff; }
+  }
+</style>
+</head>
+<body>
+<main class="wide" id="app" hidden>
+  <div class="tabs" id="tabs">
+    <button data-tab="grid" class="on">Beosztás</button>
+    <button data-tab="keret">Keret és túlóra</button>
+    <button data-tab="leave">Szabadságkérelmek <span class="count" id="leaveCount" hidden></span></button>
+    <button data-tab="people">Emberek</button>
+  </div>
+
+  <!-- Beosztás -->
+  <section id="tab-grid">
+    <div class="toolbar">
+      <label>Kezdőnap <input type="date" id="gFrom"></label>
+      <div class="field"><span>Időszak</span><span class="seg" id="gLen"></span></div>
+      <div class="field"><span>&nbsp;</span><span class="row" style="gap:4px"><button id="gPrev" title="Előző">◀</button><button id="gToday">Ma</button><button id="gNext" title="Következő">▶</button></span></div>
+      <label>Napi cél-létszám <input type="number" min="0" max="999" id="gTarget" class="target-input"></label>
+      <span class="grow"></span>
+      <button id="gExport">Excel</button>
+      <button id="gPrint">Nyomtatás</button>
+    </div>
+    <div class="grid-wrap" id="gridWrap"></div>
+    <div class="legend" id="legend"></div>
+    <div class="editor" id="editor" hidden></div>
+  </section>
+
+  <!-- Keret és túlóra -->
+  <section id="tab-keret" hidden>
+    <div class="toolbar">
+      <div class="field"><span>Munkaidőkeret</span><span class="row" style="gap:4px"><button id="kPrev">◀</button><b id="kLabel" style="padding:7px 4px"></b><button id="kNext">▶</button></span></div>
+      <span class="grow"></span>
+      <button id="kExport">Excel</button>
+    </div>
+    <div class="card table-wrap" id="keretTable"></div>
+    <p class="muted" style="font-size:13px" id="keretHelp"></p>
+  </section>
+
+  <!-- Szabadságkérelmek -->
+  <section id="tab-leave" hidden>
+    <div class="toolbar">
+      <div class="field"><span>Mutasd</span><span class="seg" id="lStatus"></span></div>
+    </div>
+    <div class="card table-wrap" id="leaveTable"></div>
+  </section>
+
+  <!-- Emberek -->
+  <section id="tab-people" hidden>
+    <div class="card">
+      <h2>Új ember</h2>
+      <form class="row" id="pForm">
+        <label style="flex:2;min-width:180px">Név <input name="name" required maxlength="80" placeholder="pl. Kiss Anna"></label>
+        <label>Munkarend <select name="pattern"><option value="12">12 órás</option><option value="24">24 órás</option></select></label>
+        <label>Beosztás <select name="role" id="pRole"></select></label>
+        <button class="primary">Hozzáad</button>
+      </form>
+      <details style="margin-top:12px">
+        <summary class="muted" style="cursor:pointer">Több név egyszerre</summary>
+        <form id="pBulk" style="margin-top:8px">
+          <textarea id="pBulkText" rows="6" style="width:100%" placeholder="Soronként egy név"></textarea>
+          <div class="row" style="margin-top:8px">
+            <label>Munkarend <select id="pBulkPattern"><option value="12">12 órás</option><option value="24">24 órás</option></select></label>
+            <button class="primary">Mind hozzáad</button>
+          </div>
+        </form>
+      </details>
+    </div>
+    <div class="card table-wrap" id="peopleTable"></div>
+  </section>
+</main>
+<script type="module" src="szolgalat.js"></script>
+</body>
+</html>
