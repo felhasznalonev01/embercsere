@@ -6,7 +6,7 @@ const H = 3600000;
 const at = (d, hhmm) => { const [h, m] = (hhmm || "07:00").split(":").map(Number); const x = parse(d); x.setHours(h, m, 0, 0); return x.getTime(); };
 
 // Alapértelmezett korlátok (a szolgálatvezetés átírhatja: settings/limits)
-export const DEFAULT_LIMITS = { maxOvertime: 136, share200: 33, period: "year" };
+export const DEFAULT_LIMITS = { maxOvertime: 136, share200: 33, period: "month" };   // 136 óra / fő / hónap
 
 // rosterMonths: { "YYYY-MM": { pid: { "DD": {c, t, p} } } }
 export function eventsOf(pid, cid, rosterMonths, offers) {

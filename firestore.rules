@@ -115,7 +115,7 @@ service cloud.firestore {
         && d().keys().hasOnly(['maxOvertime', 'share200', 'period'])
         && d().maxOvertime is number && d().maxOvertime > 0 && d().maxOvertime <= 2000
         && d().share200 is number && d().share200 >= 0 && d().share200 <= 100
-        && d().period in ['year', 'keret'];
+        && d().period in ['month', 'keret', 'year'];
     }
 
     // ---------------- Szabadságkérelmek

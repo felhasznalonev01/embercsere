@@ -4,12 +4,12 @@ import { $, esc, className, color, store, run, showError, start, today, addDays,
 import { DEFAULT_LIMITS, overtimeOf, countCodes, staffing, examIssues } from "./calc.js";
 
 const MONTHS = ["jan", "feb", "márc", "ápr", "máj", "jún", "júl", "aug", "szept", "okt", "nov", "dec"];
-const PTYPES = [["year", "Év"], ["keret", "4 havi keret"], ["month", "Hónap"]];
+const PTYPES = [["month", "Hónap"], ["keret", "4 havi keret"], ["year", "Év"]];
 
 let be, user;
 let watched = [];
 let view = null;                 // "all" | osztály id
-let ptype = store.get("st.ptype") || "year";
+let ptype = store.get("st.ptype") || "month";
 let ref = today();               // az időszak egy napja
 let detail = null;               // kiválasztott ember (lebontás)
 
@@ -26,6 +26,7 @@ function period() {
 // A túlóra-korlát időszaka (év vagy 4 havi keret), a kiválasztott időszak kezdőnapjához igazítva
 function limitPeriod() {
   const p = period();
+  if (limits.period === "month") { const m = monthKey(p.from); return { from: m + "-01", to: lastOfMonth(m), label: "havonta" }; }
   if (limits.period === "keret") { const k = keretOf(p.from); return { ...k, label: "a 4 havi keretben" }; }
   const y = p.from.slice(0, 4); return { from: `${y}-01-01`, to: `${y}-12-31`, label: `${y}-ben` };
 }
@@ -57,7 +58,7 @@ function resubscribe() {
   }
 }
 let pending = false;
-const schedule = () => { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; render(); }); };
+const schedule = () => { if (pending) return; pending = true; setTimeout(() => { pending = false; render(); }, 30); };
 
 // ---------------------------------------------------------------- számítás
 function classStats(cid) {
@@ -128,7 +129,7 @@ function tiles(s, isAll) {
 
 // Túlóra emberenként: halmozott sáv (100% + 200%), korlát-vonal
 function otBars(rows, { classLabel = false, max = null } = {}) {
-  const samePeriod = limits.period === ptype || (limits.period === "year" && ptype === "year");
+  const samePeriod = limits.period === ptype;
   const top = Math.max(max ?? 0, ...rows.map(r => r.ot.total), samePeriod ? limits.maxOvertime * 1.08 : 0, 1);
   const lim = samePeriod ? `<div class="limit" style="left:${limits.maxOvertime / top * 100}%"></div>` : "";
   if (!rows.length) return `<div class="empty-list">Nincs adat.</div>`;
@@ -300,7 +301,7 @@ function renderLimits() {
   $("#limitsCard").innerHTML = `<h2>Beállítások <span class="muted" style="font-weight:400;font-size:13px">– csak a szolgálatvezetés módosíthatja</span></h2>
     <form class="limits" id="limitsForm">
       <label>Túlóra-korlát / fő <span class="row" style="gap:6px;align-items:center"><input type="number" name="max" min="1" max="2000" value="${limits.maxOvertime}"> óra</span></label>
-      <label>Időszak <select name="period"><option value="year" ${limits.period === "year" ? "selected" : ""}>naptári évre</option><option value="keret" ${limits.period === "keret" ? "selected" : ""}>4 havi keretre</option></select></label>
+      <label>Időszak <select name="period"><option value="month" ${limits.period === "month" ? "selected" : ""}>havonta</option><option value="keret" ${limits.period === "keret" ? "selected" : ""}>4 havi keretre</option><option value="year" ${limits.period === "year" ? "selected" : ""}>naptári évre</option></select></label>
       <label>200%-os túlóra célaránya <span class="row" style="gap:6px;align-items:center"><input type="number" name="share" min="0" max="100" value="${limits.share200}"> % <span class="muted">(100%-os: ${100 - limits.share200}%)</span></span></label>
       <button class="primary">Mentés</button>
     </form>`;

@@ -112,7 +112,7 @@ async function firebaseBackend() {
 }
 
 // ---------------------------------------------------------------- Próbamód (a böngészőfülben tárolva)
-const DEMO_KEY = "embercsere-proba-v8";
+const DEMO_KEY = "embercsere-proba-v9";
 function demoBackend() {
   const ss = { get: k => { try { return sessionStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} } };
   const store = {};                 // col -> Map(id -> data)
@@ -216,7 +216,7 @@ function seedDemo(colMap) {
   const getCell = (cid, pid, d) => colMap("roster").get(`${cid}_${d.slice(0, 7)}`)?.cells?.[pid]?.[d.slice(8)];
   // szolgálati sorrend: a kezdőnaptól o1, o2, o3, o4, o1, ...
   colMap("settings").set("rotation", { start, order: classes });
-  colMap("settings").set("limits", { maxOvertime: 136, share200: 33, period: "year" });
+  colMap("settings").set("limits", { maxOvertime: 136, share200: 33, period: "month" });
   const duty = d => classes[((Math.round((new Date(d + "T12:00") - new Date(start + "T12:00")) / 86400000) % 4) + 4) % 4];
   classes.forEach((cid, ci) => {
     colMap("classSettings").set(cid, { classId: cid, target: 17 });
