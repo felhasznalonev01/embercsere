@@ -87,6 +87,11 @@
   .leave-days .seg button { padding: 3px 8px; font-size: 12px; }
   table.grid th small.dlbl { color: var(--text); font-weight: 600; font-size: 10px; }
   table.grid tbody td.name.clickable { cursor: pointer; }
+  table.grid tbody td.name[draggable="true"] { cursor: grab; }
+  table.grid tbody td.name .grip { color: var(--muted); margin-right: 4px; font-size: 11px; }
+  table.grid tr.rowdrop-before td { box-shadow: inset 0 3px 0 var(--accent); }
+  table.grid tr.rowdrop-after td { box-shadow: inset 0 -3px 0 var(--accent); }
+  table.grid tr.rowdragging td { opacity: .45; }
   table.grid .name .warn { margin-left: 4px; }
   .exp-bad { color: var(--danger); font-weight: 600; }
   .exp-warn { color: var(--warn); font-weight: 600; }
@@ -126,6 +131,7 @@
     <div class="toolbar">
       <label>Kezdőnap <input type="date" id="gFrom"></label>
       <div class="field"><span>Időszak</span><span class="seg" id="gLen"></span></div>
+      <div class="field" title="ABC: névsor szerint · Saját: ahogy a neveket áthúzod"><span>Nevek sorrendje</span><span class="seg" id="gSort"></span></div>
       <div class="field"><span>&nbsp;</span><span class="row" style="gap:4px"><button id="gPrev" title="Előző">◀</button><button id="gToday">Ma</button><button id="gNext" title="Következő">▶</button></span></div>
       <label title="Nappal: 7:00–19:00">Cél-létszám nappal <input type="number" min="0" max="999" id="gTargetDay" class="target-input"></label>
       <label title="Éjszaka: 19:00–7:00">éjszaka <input type="number" min="0" max="999" id="gTargetNight" class="target-input"></label>

@@ -43,7 +43,10 @@ let leaveFilter = "pending";
 
 // ---------------------------------------------------------------- segédek
 const cellOf = (pid, d) => roster[monthKey(d)]?.[pid]?.[d.slice(8)] || null;
-const active = () => people.filter(p => p.active !== false).sort((a, b) => a.name.localeCompare(b.name, "hu"));
+// Nevek sorrendje: "abc" vagy "custom" (osztályonként mentve, a saját sorrend az emberek "order" mezőjében)
+const sortMode = () => settings.sortMode === "custom" ? "custom" : "abc";
+const byOrder = (a, b) => (a.order ?? 1e9) - (b.order ?? 1e9) || a.name.localeCompare(b.name, "hu");
+const active = () => people.filter(p => p.active !== false).sort(sortMode() === "custom" ? byOrder : (a, b) => a.name.localeCompare(b.name, "hu"));
 const personOf = id => people.find(p => p.id === id);
 const at = (d, hhmm) => { const [h, m] = (hhmm || "07:00").split(":").map(Number); const x = parse(d); x.setHours(h, m, 0, 0); return x.getTime(); };
 const H = 3600000;
@@ -181,6 +184,7 @@ function renderGrid() {
   const { from, to } = viewRange();
   $("#gFrom").value = gFrom;
   $("#gLen").innerHTML = LENGTHS.map(([k, t]) => `<button type="button" data-len="${k}" class="${k === gLen ? "on" : ""}">${t}</button>`).join("");
+  $("#gSort").innerHTML = [["abc", "ABC"], ["custom", "Saját"]].map(([k, t]) => `<button type="button" data-sort="${k}" class="${k === sortMode() ? "on" : ""}" ${canEdit ? "" : "disabled"}>${t}</button>`).join("");
   const tg = targetsOf(settings, DEFAULT_TARGET_DAY, DEFAULT_TARGET_NIGHT);
   if (document.activeElement !== $("#gTargetDay")) $("#gTargetDay").value = tg.day;
   if (document.activeElement !== $("#gTargetNight")) $("#gTargetNight").value = tg.night;
@@ -208,7 +212,7 @@ function renderGrid() {
       return `<td class="cell ${dayCls(d)} ${v?.t || l.length ? "ot" : ""} ${isSel ? "sel" : ""}" style="${bg}" data-pid="${p.id}" data-date="${d}" ${canEdit ? 'draggable="true"' : ""}
         title="${esc(p.name)} · ${d}${code ? " · " + code.label + " " + (v.s ? `${v.s}–${v.e}` : timeOf(v.c)) : ""}${v?.t ? " · túlóra" : ""}${canEdit ? "\nKattints a módosításhoz, vagy húzd át cseréhez" : ""}">${v ? esc(v.c) + (v.t ? "+" : "") : ""}${v?.s ? `<span class="tm">${shortT(v.s)}–${shortT(v.e)}</span>` : ""}${lentHtml}</td>`;
     }).join("");
-    return `<tr><td class="name ${canEdit ? "clickable" : ""}" ${canEdit ? `data-person="${p.id}"` : ""} title="${esc(p.name)}${canEdit ? " – kattints az adataihoz és a minta szerinti kitöltéshez" : ""}">${esc(p.name)}${(() => { const pr = examProblems(p); return pr.length ? `<span class="warn ${pr.some(e => e.st === "bad") ? "exp-bad" : "exp-warn"}" title="${esc(pr.map(e => `${e.x.label}: ${e.st === "bad" ? "LEJÁRT" : "hamarosan lejár"} (${fmtD(e.d)})`).join("\n"))}">⚠</span>` : ""; })()}<small>${p.pattern}h${p.role ? " · " + esc(p.role) : ""}</small>${canEdit ? `<button data-person="${p.id}" title="Szerkesztés">✎</button>` : ""}</td>${cells}</tr>`;
+    return `<tr data-row="${p.id}"><td class="name ${canEdit ? "clickable" : ""}" ${canEdit ? `data-person="${p.id}" draggable="true"` : ""} title="${esc(p.name)}${canEdit ? " – kattints az adataihoz, vagy húzd fel / le a sorrendhez" : ""}">${canEdit ? '<span class="grip">⠿</span>' : ""}${esc(p.name)}${(() => { const pr = examProblems(p); return pr.length ? `<span class="warn ${pr.some(e => e.st === "bad") ? "exp-bad" : "exp-warn"}" title="${esc(pr.map(e => `${e.x.label}: ${e.st === "bad" ? "LEJÁRT" : "hamarosan lejár"} (${fmtD(e.d)})`).join("\n"))}">⚠</span>` : ""; })()}<small>${p.pattern}h${p.role ? " · " + esc(p.role) : ""}</small>${canEdit ? `<button data-person="${p.id}" title="Szerkesztés">✎</button>` : ""}</td>${cells}</tr>`;
   }).join("");
 
   // Kölcsönkapott emberek (más osztálytól)
@@ -236,7 +240,7 @@ function renderGrid() {
     : `<div class="empty-list">Még nincs ember felvéve. Az <b>Emberek</b> fülön tudod felvinni őket.</div>`;
 
   $("#gridHelp").innerHTML = canEdit
-    ? `<div class="gridhelp"><span>✎ <b>Kattints egy cellára</b> a módosításhoz vagy törléshez</span><span>⇄ <b>Húzd át</b> a cellát egy másikra: a kettő helyet cserél</span><span>👤 <b>Kattints a névre</b> az ember adataihoz és a minta szerinti kitöltéshez</span></div>`
+    ? `<div class="gridhelp"><span>✎ <b>Kattints egy cellára</b> a módosításhoz vagy törléshez</span><span>⇄ <b>Húzd át</b> a cellát egy másikra: a kettő helyet cserél</span><span>👤 <b>Kattints a névre</b> az ember adataihoz</span><span>⠿ <b>Húzd a nevet</b> fel / le: így állítod a sorrendet (megmarad)</span></div>`
     : `<div class="viewonly" id="viewonly">👁 <b>Csak megtekintés.</b> A beosztást az osztályvezetők szerkesztik – ehhez osztályvezetőként kell belépni.${be.isDemo ? " (Próbamódban: Kilépés → Ki vagy? → Osztályvezető.)" : ""}</div>`;
   $("#legend").innerHTML = CODE_KEYS.map(k => [k, CODES[k]]).map(([k, c]) => `<span><b style="background:${c.color};color:#1d2330">${k}</b>${c.label}${timeOf(k) ? ` ${timeOf(k)}` : ""}</span>`).join("") +
     `<span><b style="box-shadow:inset 0 0 0 2px #e08a00">N+</b>túlóra</span><span><b style="color:#b45309">É→4</b>kölcsönadva a 4. osztálynak</span>
@@ -340,6 +344,16 @@ function openPerson(pid) {
       <label>Éves szabadság (nap) <input type="number" id="ppLeave" min="0" max="99" value="${p.leaveDays ?? ""}" style="width:100px"> <span class="muted">idén felhasználva: ${leaveUsed(p.id)} nap</span></label>
       <div class="row">${EXAMS.map(x => { const d = p.exams?.[x.id] || "", st = examState(d); return `<label>${esc(x.label)} érvényes eddig <input type="date" class="exam-input ${d && st === "bad" ? "exp-bad" : d && st === "warn" ? "exp-warn" : ""}" data-ppexam="${x.id}" value="${d}"></label>`; }).join("")}</div>
       <label style="flex-direction:row;gap:6px;align-items:center;color:var(--text);font-size:14px"><input type="checkbox" id="ppAct" ${p.active !== false ? "checked" : ""}> Aktív (ha kiveszed, eltűnik a beosztásból, de az adatai megmaradnak)</label>
+      <fieldset style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:0">
+        <legend style="font-size:13px;padding:0 4px"><b>Időszak beállítása</b> (pl. betegség)</legend>
+        <div class="row">
+          <label>Mi <select id="prCode"><option value="B">Beteg</option><option value="SZ">Szabadság</option><option value="P">Pihenő</option><option value="K">Képzés</option><option value="">Üres (törlés)</option></select></label>
+          <label>Mettől <input type="date" id="prFrom" value="${sel?.pid === pid ? sel.date : today()}"></label>
+          <label>Meddig <input type="date" id="prTo" value="${sel?.pid === pid ? sel.date : today()}"></label>
+          <button type="button" id="prApply">Beírás</button>
+        </div>
+        <div class="hint muted" style="font-size:12px;margin-top:4px">Az időszak minden napját felülírja (a túlórát és a kölcsönadást nem érinti).</div>
+      </fieldset>
       <div class="row"><button type="button" id="ppFill">Kitöltés mintával…</button><span class="grow" style="flex:1"></span><button type="button" class="danger" id="ppDel">🗑 Ember törlése</button></div>
     </div>`, async bg => {
     const name = bg.querySelector("#ppName").value.trim();
@@ -351,6 +365,16 @@ function openPerson(pid) {
   });
   const bg = document.querySelector(".modal-bg");
   bg.querySelector("#ppFill").addEventListener("click", () => { bg.remove(); openFill(pid); });
+  bg.querySelector("#prApply").addEventListener("click", () => {
+    const c = bg.querySelector("#prCode").value, f = bg.querySelector("#prFrom").value, t = bg.querySelector("#prTo").value;
+    if (!f || !t || t < f) return alert("Ellenőrizd a dátumokat (a „Meddig” nem lehet korábbi).");
+    const days = range(f, t);
+    if (days.length > 366) return alert("Legfeljebb 1 évet lehet egyszerre beírni.");
+    const label = c ? CODES[c].label.toLowerCase() : "törlés";
+    if (!confirm(`${p.name}: ${f.replaceAll("-", ".")}. – ${t.replaceAll("-", ".")}. (${days.length} nap) → ${label}?`)) return;
+    bg.remove();
+    run(() => be.batch(cellsWrites(days.map(d => ({ pid, date: d, val: c ? { c } : null })))));
+  });
   bg.querySelector("#ppDel").addEventListener("click", () => {
     if (confirm(`Törlöd: ${p.name}?\nHa csak nem dolgozik már itt, inkább vedd ki az „Aktív” pipát – úgy a korábbi adatai megmaradnak.`)) { bg.remove(); sel = null; run(() => be.remove("people", pid)); }
   });
@@ -463,6 +487,30 @@ function renderPeople() {
     </tbody></table><p class="muted" style="font-size:13px">${people.filter(p => p.active !== false).length} aktív fő. A felhasznált szabadság az idei, beosztásba beírt SZ napok száma.
       A dátum <span class="exp-warn">narancs</span>, ha ${EXAM_WARN_DAYS} napon belül lejár, <span class="exp-bad">piros</span>, ha már lejárt.</p>`
     : `<div class="empty-list">Még nincs ember felvéve.</div>`;
+}
+
+// ---------------------------------------------------------------- nevek sorrendje
+let rowDrag = null;
+function setSort(mode) {
+  if (mode === sortMode()) return;
+  const ops = [{ col: "classSettings", id: me, op: "set", merge: true, data: { classId: me, sortMode: mode } }];
+  // Első váltáskor a saját sorrend az eddigi (ABC) sorrendből indul
+  if (mode === "custom" && people.some(p => p.order == null)) {
+    people.slice().sort(byOrder).forEach((p, i) => ops.push({ col: "people", id: p.id, op: "update", data: { order: (i + 1) * 10 } }));
+  }
+  run(() => be.batch(ops));
+}
+function moveRow(id, targetId, after) {
+  const list = active().map(p => p.id).filter(x => x !== id);
+  let at = list.indexOf(targetId); if (at < 0) return;
+  if (after) at++;
+  list.splice(at, 0, id);
+  // az inaktívak a végére kerülnek, hogy ne keveredjenek
+  const rest = people.filter(p => !list.includes(p.id)).sort(byOrder).map(p => p.id);
+  const ops = [...list, ...rest].map((pid, i) => ({ col: "people", id: pid, op: "update", data: { order: (i + 1) * 10 } }))
+    .filter(o => personOf(o.id)?.order !== o.data.order);
+  if (sortMode() !== "custom") ops.push({ col: "classSettings", id: me, op: "set", merge: true, data: { classId: me, sortMode: "custom" } });
+  run(() => be.batch(ops));
 }
 
 // ---------------------------------------------------------------- embercsere ↔ névsor
@@ -598,6 +646,7 @@ function wire() {
     const t = e.target.closest("button, td.cell") || e.target;
     const d = t.dataset || {};
     if (d.tab) { tab = d.tab; sel = null; store.set("sz.tab", tab); render(); }
+    else if (d.sort && canEdit) setSort(d.sort);
     else if (d.len) { gLen = d.len; store.set("sz.len", gLen); resubscribe(); render(); }
     else if (t.id === "gPrev" || t.id === "gNext") {
       const dir = t.id === "gPrev" ? -1 : 1;
@@ -682,6 +731,14 @@ function wire() {
   // ---- Áthúzásos csere a beosztásban
   let drag = null;
   document.addEventListener("dragstart", e => {
+    const nm = e.target.closest?.("td.name[draggable]");
+    if (nm && canEdit) {
+      rowDrag = nm.dataset.person;
+      nm.closest("tr").classList.add("rowdragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", "row:" + rowDrag);
+      return;
+    }
     const td = e.target.closest?.("td.cell[draggable]");
     if (td && canEdit) {
       drag = { pid: td.dataset.pid, date: td.dataset.date };
@@ -694,6 +751,14 @@ function wire() {
     if (row) { rotDrag = Number(row.dataset.rot); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(rotDrag)); }
   });
   document.addEventListener("dragover", e => {
+    if (rowDrag) {
+      const tr = e.target.closest?.("tr[data-row]"); if (!tr) return;
+      e.preventDefault();
+      const r = tr.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
+      document.querySelectorAll(".rowdrop-before, .rowdrop-after").forEach(x => x.classList.remove("rowdrop-before", "rowdrop-after"));
+      if (tr.dataset.row !== rowDrag) tr.classList.add(after ? "rowdrop-after" : "rowdrop-before");
+      return;
+    }
     const td = e.target.closest?.("td.cell[draggable]");
     const row = e.target.closest?.(".rot-list [data-rot]");
     if ((td && drag) || (row && rotDrag != null)) {
@@ -703,10 +768,20 @@ function wire() {
     }
   });
   document.addEventListener("dragend", () => {
-    drag = null; rotDrag = null;
-    document.querySelectorAll(".dragging, .dropover").forEach(x => x.classList.remove("dragging", "dropover"));
+    drag = null; rotDrag = null; rowDrag = null;
+    document.querySelectorAll(".dragging, .dropover, .rowdragging, .rowdrop-before, .rowdrop-after").forEach(x => x.classList.remove("dragging", "dropover", "rowdragging", "rowdrop-before", "rowdrop-after"));
   });
   document.addEventListener("drop", e => {
+    if (rowDrag) {
+      const tr = e.target.closest?.("tr[data-row]"), moving = rowDrag;
+      rowDrag = null;
+      const after = tr?.classList.contains("rowdrop-after");
+      document.querySelectorAll(".rowdragging, .rowdrop-before, .rowdrop-after").forEach(x => x.classList.remove("rowdragging", "rowdrop-before", "rowdrop-after"));
+      if (!tr || tr.dataset.row === moving) return;
+      e.preventDefault();
+      moveRow(moving, tr.dataset.row, after);
+      return;
+    }
     const td = e.target.closest?.("td.cell[draggable]");
     if (td && drag) {
       e.preventDefault();
