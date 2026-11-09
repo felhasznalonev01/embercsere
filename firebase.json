@@ -2,14 +2,16 @@
   "hosting": {
     "public": ".",
     "ignore": [
-      "firebase.json",
+      "**/.*",
+      "**/.*/**",
       ".firebaserc",
-      "firestore.rules",
-      "UTMUTATO.md",
       ".git",
       ".git/**",
-      "**/.*",
-      "**/.*/**"
+      "UTMUTATO.md",
+      "firebase.json",
+      "firestore.rules",
+      "functions",
+      "functions/**"
     ],
     "headers": [
       {
@@ -25,5 +27,15 @@
   },
   "firestore": {
     "rules": "firestore.rules"
-  }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git"
+      ]
+    }
+  ]
 }

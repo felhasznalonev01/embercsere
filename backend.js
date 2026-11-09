@@ -82,6 +82,12 @@ async function firebaseBackend() {
       });
     },
     login: wrap((classId, role, password) => A.signInWithEmailAndPassword(auth, emailFor(classId, role), password)),
+    // Push: a készülék azonosítója (token) a Firebase Messaging-től
+    pushToken: wrap(async (vapidKey, swReg) => {
+      const M = await import(SDK + "firebase-messaging.js");
+      if (!(await M.isSupported())) throw new Error("Ez a böngésző nem támogatja a push értesítést.");
+      return M.getToken(M.getMessaging(app), { vapidKey, serviceWorkerRegistration: swReg });
+    }),
     logout: () => A.signOut(auth),
 
     watch(col, filters, cb, onErr) {
@@ -159,6 +165,7 @@ function demoBackend() {
     onAuth(cb) { authCb = cb; cb(user); return () => {}; },
     async login(classId, role) { user = role === "admin" ? { classId: null, role } : { classId, role }; ss.set(DEMO_KEY + "-user", JSON.stringify(user)); authCb(user); },
     async logout() { user = null; ss.set(DEMO_KEY + "-user", "null"); authCb(null); },
+    async pushToken() { return "proba-token-" + (user?.classId || "x"); },
     watch(col, filters, cb) {
       const l = { fire: () => cb([...colMap(col)].filter(([, d]) => match(d, filters || [])).map(([id, d]) => ({ id, ...clone(d) }))) };
       listeners.add(l); setTimeout(l.fire); return () => listeners.delete(l);

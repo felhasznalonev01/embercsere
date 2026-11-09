@@ -126,6 +126,17 @@ service cloud.firestore {
         && d().period in ['month', 'keret', 'year'];
     }
 
+    // ---------------- Push értesítés: készülékek (csak a szerver olvassa)
+    match /pushTokens/{token} {
+      allow read: if false;
+      allow create, update: if isLeader()
+        && d().keys().hasOnly(['classId', 'updatedAt'])
+        && d().classId == leaderClass()
+        && d().updatedAt == request.time
+        && token.size() < 400;
+      allow delete: if isLeader();
+    }
+
     // ---------------- Szabadságkérelmek
     match /leave/{leaveId} {
       allow read: if inClass(resource.data.classId) || isAdmin();

@@ -1,5 +1,6 @@
 // Közös részek: belépés, menü, hibaüzenet, dátum-segédek.
-import { CLASSES, FIXED_HOLIDAYS, KERET, ADMIN, ROLES } from "./config.js";
+import { CLASSES, FIXED_HOLIDAYS, KERET, ADMIN, ROLES, VAPID_KEY } from "./config.js";
+import { NOW } from "./backend.js";
 import { createBackend } from "./backend.js";
 
 export const COLORS = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)"];
@@ -101,16 +102,21 @@ const push = {
     b.hidden = false;
     if (isIOS && !isStandalone()) { b.textContent = "🔕 Értesítés"; b.title = "iPhone-on előbb tedd a kezdőképernyőre (Megosztás → Főképernyőhöz adás)"; return; }
     b.textContent = push.on() ? "🔔 Be" : "🔕 Értesítés";
-    b.title = push.on() ? "Értesítés bekapcsolva (amíg az app nyitva van). Kattints a kikapcsoláshoz." : "Értesítés bekapcsolása ezen a készüléken";
+    b.title = push.on() ? `Értesítés bekapcsolva${VAPID_KEY ? "" : " (amíg az app nyitva van)"}. Kattints a kikapcsoláshoz.` : "Értesítés bekapcsolása ezen a készüléken";
   },
   async enable(be, user) {
-    if (push.on()) { store.set(push.key, ""); return push.show(user); }   // kikapcsolás
+    if (push.on()) { store.set(push.key, ""); await push.forget(be); return push.show(user); }   // kikapcsolás
     if (isIOS && !isStandalone()) return alert("iPhone-on az értesítéshez az appot a kezdőképernyőre kell tenni:\n\n1. Safari alján a Megosztás gomb (négyzet felfelé nyíllal)\n2. „Főképernyőhöz adás”\n3. Utána az ikonról nyisd meg, és itt kapcsold be.");
     if (!push.supported()) return alert("Ez a böngésző nem támogatja az értesítéseket.");
     if (Notification.permission === "denied") return alert("Az értesítések le vannak tiltva ennél az oldalnál. A böngésző / telefon beállításaiban engedélyezd, majd próbáld újra.");
     if ((await Notification.requestPermission()) !== "granted") return push.show(user);
     store.set(push.key, "1");
-    push.notify("Értesítés bekapcsolva ✓", "Szólok, ha embert kérnek, valaki szabadságot kér, vagy adnak embert a kérésedre – amíg az app nyitva van.", "");
+    if (VAPID_KEY) {
+      // Szerveres push: a készülék regisztrálása, hogy bezárt appnál is jöjjön értesítés
+      try { await push.register(be, user); }
+      catch (e) { store.set(push.key, ""); push.show(user); return showError("Nem sikerült bekapcsolni az értesítést: " + (e.message || e)); }
+    }
+    push.notify("Értesítés bekapcsolva ✓", VAPID_KEY ? "Szólok, ha embert kérnek, valaki szabadságot kér, vagy adnak embert a kérésedre – akkor is, ha az app be van zárva." : "Szólok, ha embert kérnek, valaki szabadságot kér, vagy adnak embert a kérésedre – amíg az app nyitva van.", "");
     push.show(user);
   },
   async notify(title, body, url, tag) {
@@ -118,6 +124,27 @@ const push = {
     const opts = { body, icon: "icons/icon-192.png", badge: "icons/icon-192.png", tag, data: { url: url || location.pathname } };
     try { const reg = swReg || await navigator.serviceWorker?.ready; if (reg) return reg.showNotification(title, opts); } catch {}
     try { new Notification(title, opts); } catch {}
+  },
+  // Szerveres push: a készülék azonosítója a "pushTokens" gyűjteménybe kerül (osztállyal)
+  async register(be, user) {
+    const reg = swReg || await navigator.serviceWorker.ready;
+    const token = await be.pushToken(VAPID_KEY, reg);
+    if (!token) throw new Error("nincs azonosító");
+    const old = store.get("push.token");
+    if (old && old !== token) { try { await be.remove("pushTokens", old); } catch {} }
+    await be.set("pushTokens", token, { classId: user.classId, updatedAt: NOW });
+    store.set("push.token", token);
+  },
+  async forget(be) {
+    const t = store.get("push.token"); if (!t) return;
+    try { await be.remove("pushTokens", t); } catch {}
+    store.set("push.token", "");
+  },
+  // Belépéskor: szerveres módban frissíti a regisztrációt, különben az app figyeli az újdonságokat
+  start(be, user) {
+    push.show(user);
+    if (VAPID_KEY) { if (user?.role === "leader" && push.on()) push.register(be, user).catch(() => {}); return; }
+    push.watch(be, user);
   },
   // Figyeli az új kéréseket (osztályvezetőknek). Az első betöltéskor meglévőket „látottnak” veszi.
   watch(be, user) {
@@ -203,7 +230,7 @@ export async function start({ page, onUser, onLogout }) {
     catch (err) { $("#loginErr").textContent = err.message; }
     finally { $("#loginBtn").disabled = false; }
   });
-  $("#logout").addEventListener("click", () => { push.stop(); be.logout(); });
+  $("#logout").addEventListener("click", async () => { push.stop(); await push.forget(be); be.logout(); });
   $("#notifBtn").addEventListener("click", () => push.enable(be, current));
 
   const keep = location.search;  // ?proba megtartása oldalváltáskor
@@ -228,7 +255,7 @@ export async function start({ page, onUser, onLogout }) {
     $("#meRole").textContent = user.role === "leader" ? "Osztályvezető:" : user.role === "admin" ? "" : "Beosztott:";
     $("#meName").textContent = user.role === "admin" ? ADMIN.name : className(user.classId);
     $("#meName").style.setProperty("--clr", color(user.classId));
-    push.show(user); push.watch(be, user);
+    push.start(be, user);
     onUser(be, user);
   });
 }
