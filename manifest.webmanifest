@@ -1,7 +1,7 @@
 {
-  "name": "Embercsere – szolgálatbeosztás",
+  "name": "Embercsere – szolgálatvezénylés",
   "short_name": "Embercsere",
-  "description": "Embercsere, szolgálatbeosztás, szabadságkérelem a 4 osztálynak",
+  "description": "Embercsere, szolgálatvezénylés, szabadságkérelem a 4 osztálynak",
   "lang": "hu",
   "start_url": "./index.html",
   "scope": "./",

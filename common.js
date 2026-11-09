@@ -178,7 +178,7 @@ const push = {
 // ---------------------------------------------------------------- belépés + menü
 const PAGES = [
   { href: "index.html", title: "Embercsere", roles: ["leader"] },
-  { href: "szolgalat.html", title: "Szolgálatbeosztás", roles: ["leader", "admin"] },
+  { href: "szolgalat.html", title: "Szolgálatvezénylés", roles: ["leader", "admin"] },
   { href: "statisztika.html", title: "Statisztika", roles: ["leader", "admin"] },
   { href: "dolgozo.html", title: "Szabadságkérelem", roles: ["leader", "worker"] }
 ];

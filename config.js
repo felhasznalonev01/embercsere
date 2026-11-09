@@ -18,7 +18,7 @@ export const firebaseConfig = {
 export const VAPID_KEY = "BGkqtoxLXiAEr9i8dhPvTy2PzhZ8UahkeeMdymuDBoc62LhUZ7Qfq_xMjSYWt3N9LM7y0zisGPJ_6b1LbHcUM3o";
 
 // 2) A 4 osztály és a fiókjaik (a Firebase Authentication → Users listában ugyanezek kellenek).
-//    email       = az osztályvezető fiókja (embercsere + szolgálatbeosztás)
+//    email       = az osztályvezető fiókja (embercsere + szolgálatvezénylés)
 //    workerEmail = az osztály közös dolgozói fiókja (csak szabadságkérelem)
 //    Ha itt átírod az e-maileket, a firestore.rules fájlban is írd át!
 export const CLASSES = [

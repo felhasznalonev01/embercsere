@@ -1,4 +1,4 @@
-// Szolgálatbeosztás – az osztályvezető a saját osztályát szerkeszti; a szolgálatvezetés mindet látja (csak olvasás).
+// Szolgálatvezénylés – az osztályvezető a saját osztályát szerkeszti; a szolgálatvezetés mindet látja (csak olvasás).
 import { CLASSES, ROLES, CODES, PATTERNS, SHIFT_CODE, OVERTIME_200_WINDOW_HOURS, DEFAULT_TARGET, KERET, EXAMS, EXAM_WARN_DAYS, DEFAULT_LEAVE_DAYS, DEFAULT_TARGET_DAY, DEFAULT_TARGET_NIGHT } from "./config.js";
 import { cellSpan, offerSpan, codeAllowed, targetsOf, headcount as hcCalc } from "./calc.js";
 import { DELETE, NOW } from "./backend.js";
