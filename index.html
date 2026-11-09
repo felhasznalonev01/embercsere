@@ -2,7 +2,14 @@
 <html lang="hu">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2f6fde">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Embercsere">
 <title>Embercsere</title>
 <link rel="stylesheet" href="styles.css">
 <style>
@@ -36,6 +43,18 @@
   .give-form input, .give-form select { padding: 4px 8px; max-width: 220px; }
   .note { color: var(--muted); font-size: 14px; margin-top: 6px; }
   .past { opacity: .6; }
+  @media (max-width: 700px) {
+    .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .cls { padding: 10px; }
+    .cls .nums { gap: 8px; }
+    .cls .nums b { font-size: 18px; }
+    .roles { grid-template-columns: 1fr; }
+    .stepper button { width: 40px; height: 40px; }
+    .req-head { gap: 6px 8px; }
+    .give-form { width: 100%; }
+    .give-form select, .give-form input { max-width: none; flex: 1 1 100%; }
+    .chip { font-size: 13px; }
+  }
 </style>
 </head>
 <body>

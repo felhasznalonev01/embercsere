@@ -81,3 +81,44 @@ table.plain td.num, table.plain th.num { text-align: right; font-variant-numeric
 .modal h2 { margin-bottom: 14px; }
 .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .modal .stack { display: flex; flex-direction: column; gap: 10px; }
+
+/* ===================================================================== Telefon */
+html { -webkit-text-size-adjust: 100%; }
+body { padding-bottom: env(safe-area-inset-bottom); }
+.topbar { padding-top: max(8px, env(safe-area-inset-top)); }
+.notif-btn { white-space: nowrap; }
+@media (max-width: 700px) {
+  body { font-size: 15px; }
+  main, main.wide { padding: 10px 10px 80px; }
+  h1 { font-size: 20px; }
+  .card { padding: 12px; border-radius: 12px; }
+  /* felső sáv: menü vízszintesen görgethető fülekként, a név és kilépés kompakt */
+  .topbar { padding: max(6px, env(safe-area-inset-top)) 8px 6px; gap: 6px; }
+  .topbar nav { order: 2; width: 100%; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 2px; }
+  .topbar nav::-webkit-scrollbar { display: none; }
+  .topbar nav a { padding: 9px 12px; white-space: nowrap; font-size: 14px; }
+  .me { width: 100%; justify-content: space-between; font-size: 13px; }
+  .me #meRole { display: none; }
+  .me b { padding: 3px 8px; }
+  /* érintésre kényelmes méretek */
+  input, select, button, textarea { font-size: 16px; min-height: 40px; }
+  button.small, .seg button { min-height: 36px; }
+  .row { gap: 8px; }
+  .row > label, .toolbar > label { flex: 1 1 140px; }
+  .toolbar { gap: 8px; }
+  .toolbar .grow { display: none; }
+  .seg { max-width: 100%; overflow-x: auto; }
+  .seg button { padding: 7px 11px; white-space: nowrap; }
+  .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { white-space: nowrap; padding: 9px 12px; }
+  /* felugró ablak alulról (mint egy app) */
+  .modal-bg { align-items: flex-end; padding: 0; }
+  .modal { max-width: none; border-radius: 16px 16px 0 0; max-height: 88vh; overflow-y: auto; padding: 16px 14px calc(16px + env(safe-area-inset-bottom)); }
+  .modal .actions { position: sticky; bottom: -16px; background: var(--card); padding: 10px 0 0; }
+  .modal .actions button { flex: 1; }
+  table.plain { font-size: 13px; }
+  table.plain th, table.plain td { padding: 6px 7px; }
+  .login { margin: 4vh auto; }
+  .banner { font-size: 13px; }
+}

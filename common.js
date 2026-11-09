@@ -1,5 +1,5 @@
 // Közös részek: belépés, menü, hibaüzenet, dátum-segédek.
-import { CLASSES, FIXED_HOLIDAYS, KERET, ADMIN } from "./config.js";
+import { CLASSES, FIXED_HOLIDAYS, KERET, ADMIN, ROLES } from "./config.js";
 import { createBackend } from "./backend.js";
 
 export const COLORS = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)"];
@@ -82,6 +82,72 @@ export async function run(fn) {
   finally { busy = false; document.body.style.cursor = ""; }
 }
 
+// ---------------------------------------------------------------- webalkalmazás + push értesítés
+let swReg = null;
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").then(r => { swReg = r; }).catch(() => {});
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+
+// Értesítés szerver nélkül: amíg az app nyitva van (akár háttérben), figyeli az új kéréseket,
+// és a telefon / gép értesítést dob. Bezárt appnál nem jön értesítés.
+const push = {
+  key: "notify.on",
+  unsubs: [],
+  supported: () => "Notification" in window,
+  on: () => push.supported() && Notification.permission === "granted" && store.get(push.key) === "1",
+  show(user) {
+    const b = $("#notifBtn");
+    if (!user || user.role !== "leader") { b.hidden = true; return; }
+    b.hidden = false;
+    if (isIOS && !isStandalone()) { b.textContent = "🔕 Értesítés"; b.title = "iPhone-on előbb tedd a kezdőképernyőre (Megosztás → Főképernyőhöz adás)"; return; }
+    b.textContent = push.on() ? "🔔 Be" : "🔕 Értesítés";
+    b.title = push.on() ? "Értesítés bekapcsolva (amíg az app nyitva van). Kattints a kikapcsoláshoz." : "Értesítés bekapcsolása ezen a készüléken";
+  },
+  async enable(be, user) {
+    if (push.on()) { store.set(push.key, ""); return push.show(user); }   // kikapcsolás
+    if (isIOS && !isStandalone()) return alert("iPhone-on az értesítéshez az appot a kezdőképernyőre kell tenni:\n\n1. Safari alján a Megosztás gomb (négyzet felfelé nyíllal)\n2. „Főképernyőhöz adás”\n3. Utána az ikonról nyisd meg, és itt kapcsold be.");
+    if (!push.supported()) return alert("Ez a böngésző nem támogatja az értesítéseket.");
+    if (Notification.permission === "denied") return alert("Az értesítések le vannak tiltva ennél az oldalnál. A böngésző / telefon beállításaiban engedélyezd, majd próbáld újra.");
+    if ((await Notification.requestPermission()) !== "granted") return push.show(user);
+    store.set(push.key, "1");
+    push.notify("Értesítés bekapcsolva ✓", "Szólok, ha embert kérnek, valaki szabadságot kér, vagy adnak embert a kérésedre – amíg az app nyitva van.", "");
+    push.show(user);
+  },
+  async notify(title, body, url, tag) {
+    if (!push.on()) return;
+    const opts = { body, icon: "icons/icon-192.png", badge: "icons/icon-192.png", tag, data: { url: url || location.pathname } };
+    try { const reg = swReg || await navigator.serviceWorker?.ready; if (reg) return reg.showNotification(title, opts); } catch {}
+    try { new Notification(title, opts); } catch {}
+  },
+  // Figyeli az új kéréseket (osztályvezetőknek). Az első betöltéskor meglévőket „látottnak” veszi.
+  watch(be, user) {
+    push.stop();
+    if (!user || user.role !== "leader") return;
+    const me = user.classId, since = addDays(today(), -1);
+    const seenKey = "notify.seen." + me;
+    let seen = new Set(JSON.parse(store.get(seenKey) || "[]"));
+    const save = () => store.set(seenKey, JSON.stringify([...seen].slice(-400)));
+    const first = {};
+    const handle = (kind, docs, make) => {
+      const fresh = docs.filter(d => !seen.has(kind + d.id));
+      docs.forEach(d => seen.add(kind + d.id)); save();
+      if (!first[kind]) { first[kind] = true; return; }          // az első adag nem értesítés
+      fresh.forEach(d => { const m = make(d); if (m) push.notify(m.title, m.body, m.url, kind + d.id); });
+    };
+    const roleList = qty => (qty || []).map((n, i) => n ? `${n} db ${ROLES[i] || "?"}` : "").filter(Boolean).join(", ");
+    const day = d => `${d.slice(5).replace("-", ".")}.`;
+    push.unsubs.push(
+      be.watch("requests", [["date", ">=", since]], docs => handle("r", docs, r => r.classId === me ? null :
+        { title: `${className(r.classId)} embert kér`, body: `${day(r.date)} ${r.shift}: ${roleList(r.qty)}`, url: "index.html" })),
+      be.watch("leave", [["classId", "==", me]], docs => handle("l", docs.filter(l => l.status === "függő"), l =>
+        ({ title: "Új szabadságkérelem", body: `${l.personName}: ${day(l.from)} – ${day(l.to)} (${l.kind})`, url: "szolgalat.html" }))),
+      be.watch("offers", [["date", ">=", since]], docs => handle("o", docs, o => o.toClassId !== me ? null :
+        { title: `${className(o.classId)} embert adott`, body: `${o.person} – ${day(o.date)} ${o.shift}`, url: "index.html" }))
+    );
+  },
+  stop() { push.unsubs.forEach(u => u()); push.unsubs = []; }
+};
+
 // ---------------------------------------------------------------- belépés + menü
 const PAGES = [
   { href: "index.html", title: "Embercsere", roles: ["leader"] },
@@ -96,7 +162,7 @@ export async function start({ page, onUser, onLogout }) {
   document.body.insertAdjacentHTML("afterbegin", `
     <div class="topbar" id="topbar" hidden>
       <nav id="nav"></nav>
-      <div class="me"><span class="muted" id="meRole"></span><b id="meName"></b><button id="logout">Kilépés</button></div>
+      <div class="me"><span class="muted" id="meRole"></span><b id="meName"></b><button id="notifBtn" class="notif-btn" hidden></button><button id="logout">Kilépés</button></div>
     </div>
     <main class="banners">
       <div class="banner" id="demoBanner" hidden><b>Próbamód:</b> ez csak a saját gépeden látszik, semmi nem mentődik, jelszó nélkül be lehet lépni. A kitalált adatok a böngészőfül bezárásáig megmaradnak.</div>
@@ -137,12 +203,16 @@ export async function start({ page, onUser, onLogout }) {
     catch (err) { $("#loginErr").textContent = err.message; }
     finally { $("#loginBtn").disabled = false; }
   });
-  $("#logout").addEventListener("click", () => be.logout());
+  $("#logout").addEventListener("click", () => { push.stop(); be.logout(); });
+  $("#notifBtn").addEventListener("click", () => push.enable(be, current));
 
   const keep = location.search;  // ?proba megtartása oldalváltáskor
+  let current = null;
   be.onAuth((user, problem) => {
+    current = user;
     if (problem) $("#loginErr").textContent = problem;
     if (!user) {
+      push.stop(); push.show(null);
       $("#loginView").hidden = false; $("#topbar").hidden = true; $("#app").hidden = true;
       onLogout && onLogout();
       return;
@@ -158,6 +228,7 @@ export async function start({ page, onUser, onLogout }) {
     $("#meRole").textContent = user.role === "leader" ? "Osztályvezető:" : user.role === "admin" ? "" : "Beosztott:";
     $("#meName").textContent = user.role === "admin" ? ADMIN.name : className(user.classId);
     $("#meName").style.setProperty("--clr", color(user.classId));
+    push.show(user); push.watch(be, user);
     onUser(be, user);
   });
 }

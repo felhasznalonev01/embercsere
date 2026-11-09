@@ -2,7 +2,14 @@
 <html lang="hu">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2f6fde">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Embercsere">
 <title>Statisztika</title>
 <link rel="stylesheet" href="styles.css">
 <style>
@@ -86,6 +93,21 @@
 
   #tip { position: fixed; z-index: 60; pointer-events: none; background: var(--text); color: var(--bg); font-size: 12px; padding: 6px 9px; border-radius: 6px; max-width: 280px; white-space: pre-line; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
   @media print { .topbar, .banners, .stats-head .no-print, .no-print { display: none !important; } body { background: #fff; } }
+  @media (max-width: 700px) {
+    .stats-head { gap: 8px; }
+    .stats-head h1 { width: 100%; }
+    .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .tile { padding: 10px 12px; }
+    .tile .val { font-size: 22px; }
+    .tile .sub { font-size: 12px; }
+    .hrow { grid-template-columns: 92px 1fr auto; gap: 6px; font-size: 12px; }
+    .hrow .nm small { display: none; }
+    .chart { padding: 12px; }
+    .classcards { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .ccard { padding: 10px; } .ccard .kv { font-size: 12px; }
+    .cols { height: 150px; }
+    .limits input { width: 100%; }
+  }
 </style>
 </head>
 <body>

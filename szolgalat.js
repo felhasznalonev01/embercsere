@@ -36,7 +36,7 @@ function syncView() {
 
 // Nézet állapota
 let tab = store.get("sz.tab") || "grid";
-let gFrom = null, gLen = store.get("sz.len") || "month";
+let gFrom = null, gLen = store.get("sz.len") || (innerWidth < 700 ? "7" : "month");   // telefonon alapból 1 hét
 let keretDate = today();
 let sel = null;                  // { pid, date }
 let leaveFilter = "pending";
@@ -325,6 +325,7 @@ function renderEditor() {
 function positionEditor() {
   const ed = $("#editor"), td = document.querySelector("td.sel");
   if (ed.hidden || !td) return;
+  if (innerWidth < 700) { td.scrollIntoView({ block: "nearest", inline: "nearest" }); return; }   // telefonon alul jelenik meg
   const r = td.getBoundingClientRect(), w = ed.offsetWidth, h = ed.offsetHeight;
   let left = r.right + 8; if (left + w > innerWidth - 8) left = Math.max(8, r.left - w - 8);
   let top = Math.min(Math.max(8, r.top - 10), innerHeight - h - 8);
@@ -680,6 +681,7 @@ function wire() {
       resubscribe(); render();
     }
     else if (t.id === "gToday") { gFrom = today(); resubscribe(); render(); }
+    else if (t.id === "tbToggle") $("#tbMore").classList.toggle("open");
     else if (t.id === "gExport") exportGrid();
     else if (t.id === "gPrint") window.print();
     else if (t.id === "kPrev" || t.id === "kNext") {
