@@ -15,7 +15,7 @@ export const firebaseConfig = {
 // Push értesítés bezárt apphoz is (Firebase Blaze + Cloud Functions):
 // Firebase konzol → Project settings → Cloud Messaging → Web Push certificates → „Key pair”.
 // Amíg üres, az értesítés csak nyitott appnál működik.
-export const VAPID_KEY = "";
+export const VAPID_KEY = "BGkqtoxLXiAEr9i8dhPvTy2PzhZ8UahkeeMdymuDBoc62LhUZ7Qfq_xMjSYWt3N9LM7y0zisGPJ_6b1LbHcUM3o";
 
 // 2) A 4 osztály és a fiókjaik (a Firebase Authentication → Users listában ugyanezek kellenek).
 //    email       = az osztályvezető fiókja (embercsere + szolgálatbeosztás)
